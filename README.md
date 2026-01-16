@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Madha AI - User Guide
 
 This is your advanced "1000 Legion Power" AI Assistant, built with Python and Flet.
@@ -27,3 +28,6 @@ This is your advanced "1000 Legion Power" AI Assistant, built with Python and Fl
 ## Requirements
 - Python 3.10+
 - Internet Connection (for Gemini & Search)
+=======
+# Medha-Ai
+>>>>>>> 4892f5209862bfbe9c8329e6a1ff14184faaee41
