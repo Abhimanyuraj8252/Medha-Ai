@@ -1,0 +1,7 @@
+groq>=0.4.0
+google-generativeai
+pyttsx3
+SpeechRecognition
+requests
+beautifulsoup4
+flet>=0.80.0
