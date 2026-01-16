@@ -31,18 +31,50 @@ This is your advanced "1000 Legion Power" AI Assistant, built with Python and Fl
 =======
 <div align="center">
 
-# 🤖 Medha AI Assistant
+<!-- Premium 3D Header Banner -->
+<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=200&section=header&text=Medha%20AI%20Assistant&fontSize=60&fontColor=fff&animation=twinkling&fontAlignY=32"/>
 
-### *Your Personal AI-Powered Learning Companion* 
+<!-- Animated Title with Gradient -->
+<h1>
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=35&duration=3000&pause=1000&color=667EEA&center=true&vCenter=true&multiline=true&repeat=true&width=600&height=100&lines=🤖+Medha+AI+Assistant;Your+Personal+AI+Companion" alt="Typing SVG" />
+</h1>
 
-[![Android APK](https://img.shields.io/badge/Android-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Abhimanyuraj8252/Medha-Ai/actions)
-[![Windows](https://img.shields.io/badge/Windows-Supported-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](#)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](#)
+<!-- Glowing Badges -->
+<p>
+  <a href="https://github.com/Abhimanyuraj8252/Medha-Ai/actions">
+    <img src="https://img.shields.io/badge/Android-Auto%20Build-3DDC84?style=for-the-badge&logo=android&logoColor=white&labelColor=1a1a2e" alt="Android APK"/>
+  </a>
+  <img src="https://img.shields.io/badge/Windows-Desktop-0078D6?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1a2e" alt="Windows"/>
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white&labelColor=1a1a2e" alt="Python"/>
+  <img src="https://img.shields.io/badge/AI%20Models-70+-FF6B6B?style=for-the-badge&logo=ai&logoColor=white&labelColor=1a1a2e" alt="AI Models"/>
+</p>
 
-<img src="https://user-images.githubusercontent.com/74038190/212284100-561aa473-3905-4a80-b561-0d28506553ee.gif" width="700">
+<!-- Animated AI GIF -->
+<img src="https://user-images.githubusercontent.com/74038190/212284100-561aa473-3905-4a80-b561-0d28506553ee.gif" width="800">
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Build APK](#-build-android-apk) • [Screenshots](#-screenshots)
+<!-- Premium Navigation Bar -->
+<p>
+  <a href="#-about">
+    <img src="https://img.shields.io/badge/📖-About-667eea?style=for-the-badge"/>
+  </a>
+  <a href="#-features">
+    <img src="https://img.shields.io/badge/✨-Features-764ba2?style=for-the-badge"/>
+  </a>
+  <a href="#-installation">
+    <img src="https://img.shields.io/badge/🚀-Installation-f093fb?style=for-the-badge"/>
+  </a>
+  <a href="#-screenshots">
+    <img src="https://img.shields.io/badge/📸-Screenshots-4facfe?style=for-the-badge"/>
+  </a>
+  <a href="#-build-android-apk">
+    <img src="https://img.shields.io/badge/📱-Build%20APK-00f2fe?style=for-the-badge"/>
+  </a>
+</p>
+
+<!-- Stats Counter -->
+<img src="https://komarev.com/ghpvc/?username=Abhimanyuraj8252&repo=Medha-Ai&style=for-the-badge&color=667eea&label=REPO+VIEWS"/>
+
+<br/><br/>
 
 </div>
 
@@ -117,14 +149,69 @@ This is your advanced "1000 Legion Power" AI Assistant, built with Python and Fl
 
 <div align="center">
 
-### 💬 Chat Interface
-<img src="https://via.placeholder.com/800x450/1a1a2e/00ff00?text=Chat+Interface+Coming+Soon" width="800" alt="Chat Interface">
+### 💬 Chat Interface - Real-time AI Conversations
+<table>
+  <tr>
+    <td><img src="./screenshots/chat_view.png" width="100%" alt="Chat View"/></td>
+  </tr>
+  <tr>
+    <td align="center"><i>Premium glassmorphism UI with multi-model support</i></td>
+  </tr>
+</table>
 
-### 📚 Study Mode
-<img src="https://via.placeholder.com/800x450/1a1a2e/ff6b6b?text=Study+Mode+Coming+Soon" width="800" alt="Study Mode">
+### 📚 Study Mode - AI-Generated Notes
+<table>
+  <tr>
+    <td><img src="./screenshots/study_view.png" width="100%" alt="Study Mode"/></td>
+  </tr>
+  <tr>
+    <td align="center"><i>Comprehensive study materials with web research</i></td>
+  </tr>
+</table>
 
-### 💻 Coder Mode
-<img src="https://via.placeholder.com/800x450/1a1a2e/4ecdc4?text=Coder+Mode+Coming+Soon" width="800" alt="Coder Mode">
+### 🧠 Quiz Mode - Interactive Learning
+<table>
+  <tr>
+    <td><img src="./screenshots/quiz_view.png" width="100%" alt="Quiz Mode"/></td>
+  </tr>
+  <tr>
+    <td align="center"><i>Adaptive quizzes with instant feedback</i></td>
+  </tr>
+</table>
+
+### 💻 Coder Mode - Full-Stack Code Generation
+<table>
+  <tr>
+    <td><img src="./screenshots/coder_view.png" width="100%" alt="Coder Mode"/></td>
+  </tr>
+  <tr>
+    <td align="center"><i>Multi-file code editor with live preview</i></td>
+  </tr>
+</table>
+
+### 🎤 Voice Input - Hands-free Control
+<table>
+  <tr>
+    <td><img src="./screenshots/voice_mode.png" width="100%" alt="Voice Mode"/></td>
+  </tr>
+  <tr>
+    <td align="center"><i>Continuous voice mode with Hindi/English support</i></td>
+  </tr>
+</table>
+
+### 📜 Session History - ChatGPT-style Memory
+<table>
+  <tr>
+    <td><img src="./screenshots/history_view.png" width="100%" alt="History View"/></td>
+  </tr>
+  <tr>
+    <td align="center"><i>Persistent chat sessions with search & delete</i></td>
+  </tr>
+</table>
+
+<br/>
+
+> **📝 Note:** Screenshots taken from Windows Desktop version. Android UI is optimized for mobile screens.
 
 </div>
 
