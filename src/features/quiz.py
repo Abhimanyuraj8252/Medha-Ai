@@ -411,7 +411,7 @@ Difficulty: {difficulty}
 Language: {language}
 Context: {research_context[:3000] if research_context else "None"}
 
-Task: Stream {count} multiple choice questions one by one.
+Task: Stream EXACTLY {count} multiple choice questions one by one. Do not generate more or less.
 Format: JSON Object per line. Separate each object with '@@@'.
 Example:
 @@@ {{"id": 1, "question": "...", "options": ["..."], "correct_index": 0, "explanation": "..."}} @@@
@@ -508,14 +508,18 @@ Rules:
 
         # Start ID for new questions
         start_id = len(self.quiz_data) + 1
-        count = 5 # Default for refinement
+        try:
+            count = int(self.count_input.value)
+            if count < 1: count = 5
+        except:
+            count = 5
 
         system_prompt = f"""You are a Quiz Generator.
         User Request: {instruction}
         Difficulty: {difficulty}
         Language: {language}
         
-        Task: Generate {count} NEW additional multiple choice questions.
+        Task: Generate EXACTLY {count} NEW additional multiple choice questions. Do not generate more or less.
         Format: JSON Object per line. Separate with '@@@'.
         
         Rules:
@@ -580,6 +584,11 @@ Rules:
     def process_quiz_json(self, response):
         pass # Deprecated/Unused now that we use streaming in refine_quiz
 
+    def add_quiz_card(self, q_data):
+        """Adds a single quiz card to the list"""
+        card = self.build_question_card(q_data)
+        self.quiz_list.controls.append(card)
+
     def render_quiz(self, update_theme_only=False):
         self.quiz_list.controls.clear()
         # Note: We must NOT clear user_answers if we are just updating theme
@@ -603,9 +612,42 @@ Rules:
         q_id = q.get('id', 0)
         current_theme = theme.get_theme()
         
-        # Helper to handle radio change
+        # Feedback Container (Initially Hidden)
+        feedback_text = ft.Text("", visible=False)
+        feedback_container = ft.Container(
+            content=feedback_text,
+            padding=10,
+            border_radius=5,
+            visible=False,
+            margin=ft.margin.only(top=10)
+        )
+
+        # Helper to handle radio change with Immediate Feedback
         def on_change(e):
-            self.user_answers[str(q_id)] = e.control.value # Value is index string "0", "1" etc
+            val = e.control.value
+            self.user_answers[str(q_id)] = val 
+            
+            user_ans_idx = int(val)
+            correct_idx = q['correct_index']
+            is_correct = user_ans_idx == correct_idx
+            
+            # Prepare Feedback
+            if is_correct:
+                feedback_text.value = f"✅ Correct! {q.get('explanation', '')}"
+                feedback_text.color = ft.Colors.GREEN_400
+                feedback_container.bgcolor = ft.Colors.with_opacity(0.1, ft.Colors.GREEN_400)
+                feedback_container.border = ft.border.all(1, ft.Colors.GREEN_400)
+            else:
+                feedback_text.value = f"❌ Incorrect. {q.get('explanation', '')}"
+                feedback_text.color = ft.Colors.RED_400
+                feedback_container.bgcolor = ft.Colors.with_opacity(0.1, ft.Colors.RED_400)
+                feedback_container.border = ft.border.all(1, ft.Colors.RED_400)
+            
+            feedback_text.visible = True
+            feedback_container.visible = True
+            
+            if self.page:
+                self.update()
 
         # Create options with index as value
         radios = []
@@ -618,18 +660,20 @@ Rules:
 
         rg = ft.RadioGroup(
             content=ft.Column(radios),
-            value=self.user_answers.get(str(q_id)), # Restore selection if exists
+            value=self.user_answers.get(str(q_id)),
             on_change=on_change
         )
         
         card = ft.Container(
             content=ft.Column([
                 ft.Text(f"Q{q_id}. {q['question']}", size=16, weight=ft.FontWeight.BOLD, color=current_theme["text_primary"]),
-                rg
+                rg,
+                feedback_container # Add feedback below options
             ]),
             bgcolor=ft.Colors.with_opacity(0.1, current_theme["text_primary"]),
             padding=15,
-            border_radius=10
+            border_radius=10,
+            margin=ft.margin.only(bottom=10)
         )
         return card
 
