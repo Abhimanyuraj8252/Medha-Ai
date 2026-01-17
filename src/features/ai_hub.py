@@ -4,7 +4,7 @@ import time
 import base64
 import requests
 import flet as ft
-
+from core.themes import theme
 
 class AIHubView(ft.Column):
     def __init__(self):
@@ -16,6 +16,9 @@ class AIHubView(ft.Column):
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
 
         self.providers = self._load_config()
+
+        # Get Current Theme
+        current_theme = theme.get_theme()
 
         self.provider_type = ft.Dropdown(
             label="Provider",
@@ -47,12 +50,18 @@ class AIHubView(ft.Column):
             ],
             value=self.providers.get("type", "OpenAI-Compatible"),
             width=200,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
         )
 
         self.base_url = ft.TextField(
             label="Base URL",
             value=self.providers.get("base_url", "https://openrouter.ai/api/v1"),
             expand=True,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
         )
         self.api_key = ft.TextField(
             label="API Key",
@@ -60,10 +69,26 @@ class AIHubView(ft.Column):
             password=True,
             can_reveal_password=True,
             expand=True,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
         )
 
-        self.model_dropdown = ft.Dropdown(label="Model", options=[], expand=True)
-        self.model_search = ft.TextField(label="HF search keyword (optional)", expand=True)
+        self.model_dropdown = ft.Dropdown(
+            label="Model", 
+            options=[], 
+            expand=True,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+        )
+        self.model_search = ft.TextField(
+            label="HF search keyword (optional)", 
+            expand=True,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+        )
 
         self.output_type = ft.Dropdown(
             label="Output Type",
@@ -75,36 +100,72 @@ class AIHubView(ft.Column):
             ],
             value="text",
             width=150,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
         )
 
         self.custom_endpoint = ft.TextField(
             label="Custom Endpoint (optional)",
             hint_text="Full URL for non-standard APIs",
             expand=True,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+            hint_style=ft.TextStyle(color=current_theme["text_secondary"]),
         )
-        self.save_ext = ft.TextField(label="Save as (ext)", value="png", width=120)
-        self.fetch_models_btn = ft.ElevatedButton("Fetch Models", on_click=self.fetch_models)
-        self.save_btn = ft.ElevatedButton("Save", on_click=self.save_config)
+        self.save_ext = ft.TextField(
+            label="Save as (ext)", 
+            value="png", 
+            width=120,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+        )
+        
+        self.fetch_models_btn = ft.ElevatedButton("Fetch Models", on_click=self.fetch_models, color=ft.Colors.WHITE, bgcolor=current_theme["accent"])
+        self.save_btn = ft.ElevatedButton("Save", on_click=self.save_config, color=ft.Colors.WHITE, bgcolor=ft.Colors.GREEN_600)
 
-        self.prompt = ft.TextField(label="Prompt", multiline=True, min_lines=3, expand=True)
-        self.response = ft.TextField(label="Output", multiline=True, min_lines=6, expand=True, read_only=True)
+        self.prompt = ft.TextField(
+            label="Prompt", 
+            multiline=True, 
+            min_lines=3, 
+            expand=True,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+            bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]),
+        )
+        self.response = ft.TextField(
+            label="Output", 
+            multiline=True, 
+            min_lines=6, 
+            expand=True, 
+            read_only=True,
+            label_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"], font_family="Consolas"),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+            bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]),
+        )
 
-        self.generate_text_btn = ft.ElevatedButton("Generate Text", on_click=self.generate_text)
-        self.generate_image_btn = ft.ElevatedButton("Generate Image", on_click=self.generate_image)
-        self.open_folder_btn = ft.TextButton("Open Saved Folder", on_click=self.open_saved_folder)
+        self.generate_text_btn = ft.ElevatedButton("Generate Text", on_click=self.generate_text, color=ft.Colors.WHITE, bgcolor=current_theme["accent"])
+        self.generate_image_btn = ft.ElevatedButton("Generate Image", on_click=self.generate_image, color=ft.Colors.WHITE, bgcolor=ft.Colors.PURPLE_400)
+        self.open_folder_btn = ft.TextButton("Open Saved Folder", on_click=self.open_saved_folder, style=ft.ButtonStyle(color=current_theme["accent"]))
 
-        self.status = ft.Text("")
+        self.status = ft.Text("", color=current_theme["text_secondary"])
 
         self.provider_type.on_change = self._on_provider_change
+        
+        self.header = ft.Text("🌐 Universal AI Hub", size=22, weight=ft.FontWeight.BOLD, color=current_theme["accent"])
 
         self.controls = [
-            ft.Text("🌐 Universal AI Hub", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_400),
+            self.header,
             ft.Row([self.provider_type, self.fetch_models_btn, self.save_btn], spacing=10),
             ft.Row([self.base_url, self.api_key], spacing=10),
             ft.Row([self.model_dropdown, self.output_type, self.save_ext], spacing=10),
             ft.Row([self.model_search], spacing=10),
             ft.Row([self.custom_endpoint], spacing=10),
-            ft.Divider(),
+            ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
             self.prompt,
             ft.Row([self.generate_text_btn, self.generate_image_btn, self.open_folder_btn], spacing=10),
             self.response,
@@ -112,6 +173,42 @@ class AIHubView(ft.Column):
         ]
 
         self._populate_models_from_cache()
+
+    def update_theme(self):
+        """Update colors based on current theme"""
+        current_theme = theme.get_theme()
+        
+        # Helper to update input styles
+        def update_input(control):
+            if isinstance(control, (ft.TextField, ft.Dropdown)):
+                control.label_style.color = current_theme["text_secondary"]
+                control.text_style.color = current_theme["text_primary"]
+                control.border_color = ft.Colors.with_opacity(0.2, current_theme["text_primary"])
+                if isinstance(control, ft.TextField):
+                    control.hint_style.color = current_theme["text_secondary"]
+        
+        inputs = [self.provider_type, self.base_url, self.api_key, self.model_dropdown, 
+                  self.model_search, self.output_type, self.custom_endpoint, self.save_ext,
+                  self.prompt, self.response]
+        
+        for inp in inputs:
+            update_input(inp)
+            
+        self.prompt.bgcolor = ft.Colors.with_opacity(0.05, current_theme["text_primary"])
+        self.response.bgcolor = ft.Colors.with_opacity(0.05, current_theme["text_primary"])
+            
+        self.header.color = current_theme["accent"]
+        self.status.color = current_theme["text_secondary"]
+        
+        self.fetch_models_btn.bgcolor = current_theme["accent"]
+        self.generate_text_btn.bgcolor = current_theme["accent"]
+        self.open_folder_btn.style = ft.ButtonStyle(color=current_theme["accent"])
+        
+        # Divider
+        if len(self.controls) > 6 and isinstance(self.controls[6], ft.Divider):
+            self.controls[6].color = ft.Colors.with_opacity(0.1, current_theme["text_primary"])
+
+        self.update()
 
     def did_mount(self):
         self._page = self.page

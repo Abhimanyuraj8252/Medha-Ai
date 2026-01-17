@@ -7,6 +7,7 @@ from ui.model_selector import ModelSelector
 from features.study import StudyNotesView
 from features.quiz import QuizView
 from features.coder import CoderView
+from features.ai_hub import AIHubView
 from core.voice_handler import VoiceHandler
 from core.file_handler import FileHandler
 from core.session_manager import SessionManager
@@ -44,6 +45,7 @@ class MainLayout(ft.Row):
         self.study_view = StudyNotesView(self.brain)
         self.quiz_view = QuizView(self.brain)
         self.coder_view = CoderView(self.brain)
+        self.ai_hub_view = AIHubView()  # Initialize AI Hub
         self._settings_view = None  # Lazy loaded
         
         # Default View
@@ -87,6 +89,7 @@ class MainLayout(ft.Row):
                 self.sidebar_button("Study Notes", ft.Icons.BOOK, lambda e: self.navigate_to(self.study_view)),
                 self.sidebar_button("Quiz Mode", ft.Icons.QUIZ, lambda e: self.navigate_to(self.quiz_view)),
                 self.sidebar_button("Coder Mode", ft.Icons.CODE, lambda e: self.navigate_to(self.coder_view)),
+                self.sidebar_button("AI Hub", ft.Icons.HUB, lambda e: self.navigate_to(self.ai_hub_view)), # Added AI Hub Button
                 ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
                 self.sidebar_button("Settings", ft.Icons.SETTINGS, self.open_settings),
                 ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
@@ -188,6 +191,7 @@ class MainLayout(ft.Row):
                 self.sidebar_button("Study Notes", ft.Icons.BOOK, lambda e: self.navigate_to(self.study_view)),
                 self.sidebar_button("Quiz Mode", ft.Icons.QUIZ, lambda e: self.navigate_to(self.quiz_view)),
                 self.sidebar_button("Coder Mode", ft.Icons.CODE, lambda e: self.navigate_to(self.coder_view)),
+                self.sidebar_button("AI Hub", ft.Icons.HUB, lambda e: self.navigate_to(self.ai_hub_view)), # Added AI Hub Button
                 ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
                 self.sidebar_button("Settings", ft.Icons.SETTINGS, self.open_settings),
                 ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
@@ -227,6 +231,7 @@ class MainLayout(ft.Row):
         if self.study_view: self.study_view.update_theme()
         if self.quiz_view: self.quiz_view.update_theme()
         if self.coder_view: self.coder_view.update_theme()
+        if self.ai_hub_view: self.ai_hub_view.update_theme() # Update AI Hub Theme
             
         # 5. Update Chat History Bubbles
         for bubble in self.chat_history.controls:
