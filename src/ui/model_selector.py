@@ -126,7 +126,4 @@ class ModelSelector(ft.Container):
                 data = json.load(f)
             return data.get("models", [])
         except Exception:
-                data = json.load(f)
-            return data.get("models", [])
-        except Exception:
             return []
