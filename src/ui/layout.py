@@ -11,6 +11,12 @@ from core.voice_handler import VoiceHandler
 from core.file_handler import FileHandler
 from core.session_manager import SessionManager
 from ui.history_view import SessionHistoryView
+from ui.settings_view import SettingsView
+from core.chat_exporter import chat_exporter
+from core.analytics import analytics
+from core.error_reporter import error_reporter
+from core.themes import theme
+from core.updater import updater
 
 class MainLayout(ft.Row):
     def __init__(self, page: ft.Page):
@@ -38,6 +44,7 @@ class MainLayout(ft.Row):
         self.study_view = StudyNotesView(self.brain)
         self.quiz_view = QuizView(self.brain)
         self.coder_view = CoderView(self.brain)
+        self._settings_view = None  # Lazy loaded
         
         # Default View
         self.content_area = ft.Container(
@@ -83,6 +90,14 @@ class MainLayout(ft.Row):
                     self.sidebar_button("Quiz Mode", ft.Icons.QUIZ, lambda e: self.navigate_to(self.quiz_view)),
                     self.sidebar_button("Coder Mode", ft.Icons.CODE, lambda e: self.navigate_to(self.coder_view)),
                     ft.Divider(color=ft.Colors.WHITE24),
+                    self.sidebar_button("Settings", ft.Icons.SETTINGS, self.open_settings),
+                    ft.Divider(color=ft.Colors.WHITE24),
+                    ft.TextButton(
+                        "Export Chat",
+                        icon=ft.Icons.DOWNLOAD,
+                        on_click=self.export_chat,
+                        style=ft.ButtonStyle(color=ft.Colors.CYAN_400)
+                    ),
                     ft.TextButton(
                         "Clear Chat History",
                         icon=ft.Icons.DELETE_OUTLINE,
@@ -90,7 +105,7 @@ class MainLayout(ft.Row):
                         style=ft.ButtonStyle(color=ft.Colors.RED_300)
                     ),
                     ft.Container(expand=True),
-                    ft.Text("v1.0.0", size=10, color=ft.Colors.WHITE54)
+                    ft.Text(f"v{updater.get_current_version()}", size=10, color=ft.Colors.WHITE54)
                 ]
             )
         )
@@ -98,6 +113,64 @@ class MainLayout(ft.Row):
     def navigate_to(self, view_control):
         self.content_area.content = view_control
         self.content_area.update()
+    
+    def get_settings_view(self):
+        """Lazy-load settings view"""
+        if self._settings_view is None:
+            self._settings_view = SettingsView(self._page, on_theme_change=self.apply_theme)
+        return self._settings_view
+    
+    def open_settings(self, e):
+        """Open settings view with lazy initialization"""
+        self.navigate_to(self.get_settings_view())
+    
+    def export_chat(self, e):
+        """Export current chat to HTML file"""
+        try:
+            messages = self.brain.chat_history
+            if not messages:
+                self._page.snack_bar = ft.SnackBar(
+                    content=ft.Text("No messages to export!"),
+                    action="OK"
+                )
+                self._page.snack_bar.open = True
+                self._page.update()
+                return
+            
+            # Export to HTML (prettier)
+            filepath = chat_exporter.export_to_html(messages, "Medha AI Chat")
+            
+            self._page.snack_bar = ft.SnackBar(
+                content=ft.Text(f"✅ Chat exported to Documents folder!"),
+                action="Open",
+                on_action=lambda e: self._open_export_folder()
+            )
+            self._page.snack_bar.open = True
+            self._page.update()
+            
+        except Exception as ex:
+            error_reporter.log_error(context="Export Chat", custom_message=str(ex))
+            self._page.snack_bar = ft.SnackBar(
+                content=ft.Text(f"❌ Export failed: {str(ex)[:50]}"),
+                action="OK"
+            )
+            self._page.snack_bar.open = True
+            self._page.update()
+    
+    def _open_export_folder(self):
+        """Open the export folder"""
+        import os
+        import subprocess
+        folder = chat_exporter.get_export_dir()
+        if os.path.exists(folder):
+            subprocess.Popen(f'explorer "{folder}"')
+    
+    def apply_theme(self, theme_id):
+        """Apply new theme to the app"""
+        # Rebuild settings view with new theme
+        self._settings_view = SettingsView(self._page, on_theme_change=self.apply_theme)
+        if self.content_area.content == self._settings_view:
+            self.navigate_to(self._settings_view)
 
     def sidebar_button(self, text, icon, on_click_handler):
         return ft.Container(
