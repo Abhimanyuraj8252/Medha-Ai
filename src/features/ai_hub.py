@@ -208,7 +208,8 @@ class AIHubView(ft.Column):
         if len(self.controls) > 6 and isinstance(self.controls[6], ft.Divider):
             self.controls[6].color = ft.Colors.with_opacity(0.1, current_theme["text_primary"])
 
-        self.update()
+        if self.page:
+            self.update()
 
     def did_mount(self):
         self._page = self.page

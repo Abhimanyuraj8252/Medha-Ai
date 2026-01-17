@@ -159,7 +159,8 @@ class QuizView(ft.Column):
         # Re-render Quiz Cards to update theme
         self.render_quiz(update_theme_only=True)
         
-        self.update()
+        if self.page:
+            self.update()
     
     def did_mount(self):
         """Called when control is added to page"""
@@ -373,7 +374,8 @@ class QuizView(ft.Column):
                     ft.ElevatedButton("Submit & Check Results", icon=ft.Icons.CHECK_CIRCLE, on_click=self.check_results, bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE)
                 ], alignment=ft.MainAxisAlignment.CENTER)
             )
-        self.update()
+        if self.page:
+            self.update()
 
     def build_question_card(self, q):
         q_id = q.get('id', 0)

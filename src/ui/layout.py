@@ -225,13 +225,16 @@ class MainLayout(ft.Row):
         
         # 4. Update Model Selector
         if hasattr(self, 'model_dropdown'):
-            self.model_dropdown.update_theme()
+            try:
+                self.model_dropdown.update_theme()
+            except Exception: pass
             
         # Update Other Views
-        if self.study_view: self.study_view.update_theme()
-        if self.quiz_view: self.quiz_view.update_theme()
-        if self.coder_view: self.coder_view.update_theme()
-        if self.ai_hub_view: self.ai_hub_view.update_theme() # Update AI Hub Theme
+        for view in [self.study_view, self.quiz_view, self.coder_view, self.ai_hub_view]:
+            if view:
+                try:
+                    view.update_theme()
+                except Exception: pass
             
         # 5. Update Chat History Bubbles
         for bubble in self.chat_history.controls:

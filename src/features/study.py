@@ -163,7 +163,8 @@ class StudyNotesView(ft.Column):
                        header_text = content_col.controls[0]
                        header_text.color = ft.Colors.with_opacity(0.7, ft.Colors.WHITE) if is_user else current_theme["text_secondary"]
 
-        self.update()
+        if self.page:
+            self.update()
 
     def did_mount(self):
         """Called when control is added to page"""

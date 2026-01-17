@@ -206,7 +206,8 @@ class CoderView(ft.Column):
         # Update Tab Headers
         self.update_editor_tabs(theme_update=True)
         
-        self.update()
+        if self.page:
+            self.update()
     
     def did_mount(self):
         """Called when control is added to page"""
