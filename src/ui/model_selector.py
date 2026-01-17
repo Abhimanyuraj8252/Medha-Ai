@@ -84,7 +84,8 @@ class ModelSelector(ft.Container):
         new_dropdown = self._build_dropdown()
         self.dropdown.options = new_dropdown.options
         self.dropdown.value = new_dropdown.value
-        self.dropdown.update()
+        if self.page:
+            self.dropdown.update()
 
     def _handle_change(self, e):
         selected_key = e.control.value
@@ -115,7 +116,8 @@ class ModelSelector(ft.Container):
         self.dropdown.text_style = ft.TextStyle(color=current_theme["text_primary"])
         self.dropdown.hint_style = ft.TextStyle(color=current_theme["text_secondary"])
         
-        self.update()
+        if self.page:
+            self.update()
 
     def _load_external_models(self):
         config_path = os.path.join(os.getcwd(), "user_data", "providers.json")
