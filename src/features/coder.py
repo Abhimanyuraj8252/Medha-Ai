@@ -7,6 +7,8 @@ from datetime import datetime
 from ui.model_selector import ModelSelector
 from core.session_manager import SessionManager
 from ui.history_view import SessionHistoryView
+from core.file_handler import FileHandler
+from ui.file_picker_helper import FilePickerHelper
 
 class CoderView(ft.Column):
     def __init__(self, brain):
@@ -19,6 +21,8 @@ class CoderView(ft.Column):
         
         self.session_manager = SessionManager()
         self.current_session_id = self.session_manager.create_new_session_id()
+
+        self.file_helper = FilePickerHelper(FileHandler())
         
         # --- UI COMPONENTS ---
         
@@ -41,6 +45,7 @@ class CoderView(ft.Column):
             border_radius=20,
             on_submit=self.handle_chat_submit
         )
+        self.file_button = ft.IconButton(ft.Icons.ATTACH_FILE, tooltip="Attach File(s)", on_click=self.open_file_picker)
         
         # 3. Control Bar
         self.controls_bar = ft.Row([
@@ -100,7 +105,8 @@ class CoderView(ft.Column):
                         content=ft.Column([
                             ft.Text("⚡ Project Assistant", size=16, weight="bold"),
                             ft.Container(content=self.chat_list, expand=True, bgcolor=ft.Colors.BLACK12, border_radius=10, padding=10),
-                            ft.Row([self.chat_input, ft.IconButton(ft.Icons.SEND, on_click=self.handle_chat_submit)])
+                            self.file_helper.preview_container,
+                            ft.Row([self.file_button, self.chat_input, ft.IconButton(ft.Icons.SEND, on_click=self.handle_chat_submit)])
                         ]),
                         expand=4,
                         padding=10
@@ -118,6 +124,9 @@ class CoderView(ft.Column):
     
     def did_mount(self):
         """Called when control is added to page"""
+        if self.page:
+            is_mobile = self.page.platform in [ft.PagePlatform.ANDROID, ft.PagePlatform.IOS]
+            self.file_helper.attach(self.page, is_mobile)
         # Add initial messages
         for msg in self._init_messages:
             self.add_chat_bubble(msg, is_user=False, run_update=False)
@@ -125,7 +134,7 @@ class CoderView(ft.Column):
         self.history_view.refresh_list()
         self.update()
 
-    def add_chat_bubble(self, text, is_user=False, run_update=True):
+    def add_chat_bubble(self, text, is_user=False, run_update=True, record_history=True):
         bubble = ft.Container(
             content=ft.Column([
                 ft.Text("You" if is_user else "Medha Coder", size=10, color=ft.Colors.WHITE54),
@@ -139,18 +148,9 @@ class CoderView(ft.Column):
         self.chat_list.controls.append(
             ft.Row([bubble], alignment=ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START)
         )
-        # We don't save history here because handle_chat_submit manages self.chat_history append logic?
-        # Wait, the original code had:
-        # self.chat_history.append({"role": "user", "content": prompt}) inside handle_chat_submit
-        # But add_chat_bubble is merely UI.
-        # I should save session here if I can trust that history is updated properly elsewhere? 
-        # Or better update history here to be safe and remove redundancy later.
-        # Actually in original code, history append was separate. check line 105 in read_file output.
-        # "self.chat_history.append({"role": "user", "content": prompt})"
-        
-        # Let's just trigger save if history isn't empty.
-        if self.chat_history:
-             self.save_current_session()
+        if record_history:
+            self.chat_history.append({"role": "user" if is_user else "assistant", "content": text})
+            self.save_current_session()
 
         if run_update and self.page:
             self.update()
@@ -269,14 +269,23 @@ class CoderView(ft.Column):
 
     def handle_chat_submit(self, e):
         prompt = self.chat_input.value
-        if not prompt: return
+        if not prompt and not self.file_helper.selected_files:
+            return
         
         self.chat_input.value = ""
-        self.add_chat_bubble(prompt, is_user=True)
+        if prompt:
+            self.add_chat_bubble(prompt, is_user=True, record_history=True)
         self.update()
-        
-        # Add to history
-        self.chat_history.append({"role": "user", "content": prompt})
+
+        # Image generation shortcut
+        if prompt.strip().lower().startswith("/image") or prompt.strip().lower().startswith("image:"):
+            resp = self.brain.generate_content(prompt)
+            self.add_chat_bubble(resp, is_user=False)
+            return
+
+        if self.file_helper.selected_files:
+            self.add_chat_bubble("📎 Processing selected files...", is_user=False, record_history=True)
+            prompt = self.file_helper.build_prompt_with_files(prompt)
         
         if not self.current_code:
             # Case 1: New Project Generation
@@ -284,6 +293,9 @@ class CoderView(ft.Column):
         else:
             # Case 2: Edit/Refine Existing Code
             self.refine_existing_project(prompt)
+
+    def open_file_picker(self, e):
+        self.file_helper.open_picker()
 
     def generate_new_project(self, prompt):
         self.add_chat_bubble("🔍 Researching & Planning project structrure... please wait...", is_user=False)

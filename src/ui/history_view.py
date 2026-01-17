@@ -30,22 +30,24 @@ class SessionHistoryView(ft.Container):
                     side={"": ft.BorderSide(1, ft.Colors.CYAN_200)}
                 )
             ),
-            ft.Divider(color=ft.Colors.WHITE10),
+            ft.Divider(color=ft.Colors.WHITE_10),
             self.session_list
         ])
 
     def refresh_list(self):
+        if not getattr(self, "uid", None):
+            return
         sessions = self.manager.load_sessions(self.section)
         self.session_list.controls.clear()
         
         if not sessions:
             self.session_list.controls.append(
-                ft.Text("No history yet.", size=12, italic=True, color=ft.Colors.WHITE24)
+                ft.Text("No history yet.", size=12, italic=True, color=ft.Colors.WHITE_24)
             )
         
         for sess in sessions:
             is_active = sess['id'] == self.current_session_id
-            bg_color = ft.Colors.WHITE10 if is_active else ft.Colors.TRANSPARENT
+            bg_color = ft.Colors.WHITE_10 if is_active else ft.Colors.TRANSPARENT
             
             self.session_list.controls.append(
                 ft.Container(

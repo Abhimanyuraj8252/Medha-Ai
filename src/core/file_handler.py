@@ -3,6 +3,24 @@ import os
 import base64
 from pathlib import Path
 
+try:
+    import google.generativeai as genai
+    from config import GEMINI_API_KEY
+    if GEMINI_API_KEY:
+        genai.configure(api_key=GEMINI_API_KEY)
+        GEMINI_AVAILABLE = True
+    else:
+        GEMINI_AVAILABLE = False
+except Exception:
+    GEMINI_AVAILABLE = False
+
+try:
+    from groq import Groq
+    from config import GROQ_API_KEY
+    GROQ_AVAILABLE = True if GROQ_API_KEY else False
+except Exception:
+    GROQ_AVAILABLE = False
+
 class FileHandler:
     """Handle various file types and extract content for AI analysis"""
     
@@ -99,6 +117,27 @@ class FileHandler:
                 for i in range(min(10, num_pages)):
                     page = pdf_reader.pages[i]
                     text_content += page.extract_text() + "\n\n"
+
+                # If text is empty (scanned PDF), try OCR (optional)
+                if not text_content.strip():
+                    try:
+                        from pdf2image import convert_from_path
+                        import pytesseract
+
+                        images = convert_from_path(file_path, first_page=1, last_page=min(3, num_pages))
+                        ocr_text = ""
+                        for img in images:
+                            ocr_text += pytesseract.image_to_string(img) + "\n\n"
+
+                        text_content = ocr_text.strip()
+                    except Exception:
+                        pass
+
+                # If still empty, try Gemini multimodal
+                if not text_content.strip() and GEMINI_AVAILABLE:
+                    gemini_text = FileHandler._gemini_analyze(file_path, info, kind="pdf")
+                    if gemini_text:
+                        return gemini_text
                 
                 preview = text_content[:2000] + "..." if len(text_content) > 2000 else text_content
                 
@@ -129,13 +168,49 @@ I can still help answer questions about this PDF based on filename and your desc
     @staticmethod
     def _analyze_image(file_path, info):
         """Analyze image files"""
+        # Prefer Groq vision (lower cost), fallback to Gemini
+        if GROQ_AVAILABLE:
+            groq_text = FileHandler._groq_analyze_image(file_path, info)
+            if groq_text:
+                return groq_text
+        if GEMINI_AVAILABLE:
+            gemini_text = FileHandler._gemini_analyze(file_path, info, kind="image")
+            if gemini_text:
+                return gemini_text
         try:
             from PIL import Image
+            try:
+                import pytesseract
+            except Exception:
+                pytesseract = None
             
             img = Image.open(file_path)
             width, height = img.size
             mode = img.mode
             format_name = img.format
+
+            ocr_text = ""
+            if pytesseract:
+                try:
+                    ocr_text = pytesseract.image_to_string(img).strip()
+                except Exception:
+                    ocr_text = ""
+
+            if ocr_text:
+                preview = ocr_text[:2000] + "..." if len(ocr_text) > 2000 else ocr_text
+                return f"""🖼️ **Image File:** {info['name']}
+**Format:** {format_name}
+**Dimensions:** {width} x {height} pixels
+**Color Mode:** {mode}
+**Size:** {info['size_mb']} MB
+
+**Extracted Text (OCR):**
+```
+{preview}
+```
+
+**Full OCR text available for analysis**
+"""
             
             # Get image description (basic metadata only - vision API would be needed for actual content)
             return f"""🖼️ **Image File:** {info['name']}
@@ -166,6 +241,10 @@ You can still describe the image and I'll help answer questions about it.
     @staticmethod
     def _analyze_audio(file_path, info):
         """Analyze audio files"""
+        if GEMINI_AVAILABLE:
+            gemini_text = FileHandler._gemini_analyze(file_path, info, kind="audio")
+            if gemini_text:
+                return gemini_text
         try:
             import wave
             
@@ -210,6 +289,10 @@ You can still describe the image and I'll help answer questions about it.
     @staticmethod
     def _analyze_video(file_path, info):
         """Analyze video files"""
+        if GEMINI_AVAILABLE:
+            gemini_text = FileHandler._gemini_analyze(file_path, info, kind="video")
+            if gemini_text:
+                return gemini_text
         return f"""🎬 **Video File:** {info['name']}
 **Format:** {info['extension'].upper()}
 **Size:** {info['size_mb']} MB
@@ -269,3 +352,62 @@ You can describe the content and I'll help answer questions about it.
 """
         except Exception as e:
             return f"❌ Error reading document: {str(e)}"
+
+    @staticmethod
+    def _gemini_analyze(file_path, info, kind="file"):
+        """Use Gemini multimodal to analyze files (image/audio/video/pdf)."""
+        try:
+            # Prevent very large uploads
+            if info.get("size_mb", 0) > 20:
+                return f"⚠️ **{info['name']}** is {info['size_mb']} MB. Please use files under 20 MB for AI analysis."
+
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            file_obj = genai.upload_file(file_path)
+
+            prompt = f"Analyze this {kind} and describe its content in detail. If it contains text, extract it."
+            response = model.generate_content([prompt, file_obj])
+
+            return f"""🧠 **AI Analysis ({kind.upper()}):** {info['name']}
+**Size:** {info['size_mb']} MB
+
+{response.text}
+"""
+        except Exception as e:
+            return f"⚠️ Gemini analysis failed for {info['name']}: {e}"
+
+    @staticmethod
+    def _groq_analyze_image(file_path, info):
+        """Use Groq vision model for image analysis (primary)."""
+        try:
+            if info.get("size_mb", 0) > 10:
+                return None
+
+            with open(file_path, "rb") as f:
+                image_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+            client = Groq(api_key=GROQ_API_KEY)
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Describe the image in detail and extract any visible text."},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                    ],
+                }
+            ]
+
+            response = client.chat.completions.create(
+                model="llama-3.2-90b-vision-preview",
+                messages=messages,
+                temperature=0.2,
+                max_tokens=1024,
+            )
+
+            text = response.choices[0].message.content
+            return f"""🧠 **AI Analysis (IMAGE | Groq Vision):** {info['name']}
+**Size:** {info['size_mb']} MB
+
+{text}
+"""
+        except Exception:
+            return None

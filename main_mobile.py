@@ -31,7 +31,6 @@ def main(page: ft.Page):
     if not is_mobile and hasattr(sys, 'getandroidapilevel'):
         is_mobile = True
     
-    # Page configuration
     page.title = APP_NAME
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 0
@@ -96,7 +95,7 @@ def main(page: ft.Page):
             color=ft.Colors.RED_400,
             size=16
         )
-         page.add(
+        page.add(
             ft.Container(
                 content=error_text,
                 padding=20,
@@ -109,11 +108,17 @@ def main(page: ft.Page):
         traceback.print_exc()
 
 if __name__ == "__main__":
-    # Launch app - Native desktop mode
+    # Launch app
+    # For APK: this will be called by Flet's Android wrapper
+    # For desktop: can run directly for testing
     try:
-        ft.app(target=main, view=ft.AppView.FLET_APP, port=8550)
+        ft.app(
+            target=main,
+            view=ft.AppView.FLET_APP,  # Native mobile app
+            port=8550,
+            assets_dir="assets"
+        )
     except Exception as e:
         print(f"Failed to start app: {e}")
         import traceback
         traceback.print_exc()
-

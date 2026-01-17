@@ -2,7 +2,14 @@ import warnings
 # Suppress warnings immediately
 warnings.filterwarnings("ignore")
 
-import psutil
+# Optional imports for system info (may not work on mobile)
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("psutil not available - system info features disabled")
+
 import platform
 import datetime
 import time
@@ -16,16 +23,38 @@ except ImportError:
     import google.generativeai as genai
 
 from config import GROQ_API_KEY, GEMINI_API_KEY
-from ddgs import DDGS
+from core.ai_hub_client import generate_text as hub_generate_text, generate_media as hub_generate_media
+
+# Optional web search
+try:
+    from ddgs import DDGS
+    DDGS_AVAILABLE = True
+except ImportError:
+    try:
+        from duckduckgo_search import DDGS
+        DDGS_AVAILABLE = True
+    except ImportError:
+        DDGS_AVAILABLE = False
+        print("DuckDuckGo search not available")
+
+# System controller for app/system control
+try:
+    from core.system_controller import SystemController
+    SYSTEM_CONTROL_AVAILABLE = True
+except ImportError:
+    SYSTEM_CONTROL_AVAILABLE = False
+    print("System control not available")
 
 class AIBrain:
-    def __init__(self):
+    def __init__(self, load_models=True):
         self.is_ready = False
         self.chat_history = []
-        self.ddgs = DDGS()
+        self.ddgs = DDGS() if DDGS_AVAILABLE else None
+        self.system_controller = SystemController() if SYSTEM_CONTROL_AVAILABLE else None
         self.max_history = 10
         self.active_provider = "groq" # 'groq' or 'gemini'
         self.active_model_id = "llama-3.3-70b-versatile" # Default
+        self.models_loaded = False
         
         # 1. Setup Groq
         try:
@@ -47,8 +76,34 @@ class AIBrain:
 
         self.is_ready = self.groq_ready or self.gemini_ready
         
-        # 3. Fetch Models
+        # 3. Fetch Models (optional at startup to avoid UI blocking)
+        if load_models:
+            self.available_models = self._fetch_all_models()
+            self.models_loaded = True
+            print(f"✓ Loaded {len(self.available_models)} models.")
+        else:
+            # Minimal fallback list for immediate UI
+            self.available_models = []
+            if self.groq_ready:
+                for m in [
+                    'llama-3.3-70b-versatile',
+                    'llama-3.1-70b-versatile',
+                    'mixtral-8x7b-32768',
+                    'gemma2-9b-it',
+                    'llama3-8b-8192',
+                    'llama3-70b-8192'
+                ]:
+                    self.available_models.append({"id": m, "provider": "groq", "name": f"Groq: {m}"})
+            if self.gemini_ready:
+                self.available_models.append({"id": "gemini-1.5-flash", "provider": "gemini", "name": "Gemini: 1.5 Flash (Fast)"})
+                self.available_models.append({"id": "gemini-1.5-pro", "provider": "gemini", "name": "Gemini: 1.5 Pro (Capable)"})
+
+    def load_models(self):
+        """Load full model list (safe to call after UI shows)."""
+        if self.models_loaded:
+            return
         self.available_models = self._fetch_all_models()
+        self.models_loaded = True
         print(f"✓ Loaded {len(self.available_models)} models.")
 
     def _fetch_all_models(self):
@@ -101,8 +156,13 @@ class AIBrain:
 
         return models
 
-    def set_model(self, model_id):
+    def set_model(self, model_id, provider=None):
         """Sets the active model and routes to correct provider"""
+        if provider == "aihub":
+            self.active_model_id = model_id
+            self.active_provider = "aihub"
+            print(f"🔄 Switched to AI HUB model: {model_id}")
+            return
         for m in self.available_models:
             if m['id'] == model_id:
                 self.active_model_id = model_id
@@ -111,21 +171,41 @@ class AIBrain:
                 return
         print(f"⚠️ Model {model_id} not found, keeping current.")
 
+    def _handle_media_prompt(self, prompt):
+        lowered = prompt.strip().lower()
+        if lowered.startswith("/image") or lowered.startswith("image:"):
+            img_prompt = prompt.split(" ", 1)[1] if " " in prompt else prompt.replace("image:", "").strip()
+            out_path, err = hub_generate_media(img_prompt, output_type="image")
+            return f"✅ Image saved: {out_path}" if out_path else f"❌ Image generation failed: {err}"
+        return None
+
     def get_system_info(self):
-        battery = psutil.sensors_battery()
-        plugged = "Plugged In" if battery and battery.power_plugged else "Running on Battery"
-        percent = f"{battery.percent}%" if battery else "Unknown"
+        """Get system information (mobile-friendly)"""
+        info_parts = [
+            f"OS: {platform.system()} {platform.release()}",
+            f"Time: {datetime.datetime.now().strftime('%I:%M %p')}"
+        ]
         
-        info = f"""
-        OS: {platform.system()} {platform.release()}
-        Time: {datetime.datetime.now().strftime("%I:%M %p")}
-        Battery: {percent} ({plugged})
-        CPU Usage: {psutil.cpu_percent()}%
-        Memory: {psutil.virtual_memory().percent}%
-        """
-        return info.strip()
+        # Add battery info if psutil available
+        if PSUTIL_AVAILABLE:
+            try:
+                battery = psutil.sensors_battery()
+                if battery:
+                    plugged = "Plugged In" if battery.power_plugged else "On Battery"
+                    info_parts.append(f"Battery: {battery.percent}% ({plugged})")
+                
+                info_parts.append(f"CPU: {psutil.cpu_percent()}%")
+                info_parts.append(f"Memory: {psutil.virtual_memory().percent}%")
+            except Exception as e:
+                pass  # Silently skip if system info not available
+        
+        return "\n".join(info_parts)
 
     def search_internet(self, query):
+        """Search internet (if available)"""
+        if not DDGS_AVAILABLE or not self.ddgs:
+            return "Web search not available on this device."
+        
         try:
             results = self.ddgs.text(query, max_results=3)
             if not results:
@@ -162,8 +242,14 @@ class AIBrain:
         """Generates content (Stateless)"""
         if not self.is_ready:
             return "AI Error: Service not ready."
+
+        media_resp = self._handle_media_prompt(prompt)
+        if media_resp:
+            return media_resp
             
         try:
+            if self.active_provider == "aihub":
+                return hub_generate_text(prompt, model_override=self.active_model_id)
             if self.active_provider == "gemini":
                 # Gemini logic
                 final_prompt = prompt
@@ -195,10 +281,38 @@ class AIBrain:
     def ask(self, prompt):
         if not self.is_ready:
             return "AI Service is not available. Please check Keys."
+
+        media_resp = self._handle_media_prompt(prompt)
+        if media_resp:
+            return media_resp
         
         lower_prompt = prompt.lower()
         full_prompt = prompt
         search_context = ""
+
+        # If file context is present, skip system-control execution
+        file_mode = "[selected file contexts]" in lower_prompt or "[file context" in lower_prompt
+
+        # 0. System Control Check (NEW) - Execute commands directly
+        if not file_mode and SYSTEM_CONTROL_AVAILABLE and self.system_controller:
+            # Check if this is a system command
+            system_triggers = [
+                'open', 'kholo', 'start', 'launch', 'play', 'bajao',
+                'call', 'phone', 'dial', 'message', 'sms', 'send', 'bhejo',
+                'search google', 'google search', 'dhundo', 'find on internet',
+                'note', 'write', 'plan', 'reminder', 'likho',
+                'volume', 'brightness', 'wifi', 'bluetooth'
+            ]
+            
+            is_system_command = any(trigger in lower_prompt for trigger in system_triggers)
+            
+            if is_system_command:
+                result = self.system_controller.execute_command(prompt)
+                if result:  # Command was executed
+                    # Add to history
+                    self.chat_history.append({"role": "user", "content": prompt})
+                    self.chat_history.append({"role": "assistant", "content": result})
+                    return result
 
         # 1. System Info Check
         if "battery" in lower_prompt or "system status" in lower_prompt:
@@ -221,7 +335,7 @@ class AIBrain:
         if lower_prompt.strip() in ["hi", "hello", "hey", "how are you", "who are you"]:
             should_search = False
 
-        if should_search:
+        if should_search and DDGS_AVAILABLE and self.ddgs:
             try:
                 clean_query = prompt.replace("search for", "").replace("find", "").strip()
                 print(f"🌍 Searching internet for: {clean_query}")
@@ -239,6 +353,15 @@ class AIBrain:
 Your Philosophy: "True Love means telling the Hard Truth" (Karwa Sach).
 Tone: Real, Grounded, Strict but Loving.
 Language: Hinglish.
+
+**NEW CAPABILITY:** You can now control the user's device! When they ask to:
+- Open apps (WhatsApp, Chrome, YouTube, etc.)
+- Play music/songs
+- Make calls or send messages
+- Take notes or set reminders
+- Control system (volume, brightness, WiFi)
+
+Just acknowledge the command naturally. The system will execute it automatically.
 """
         if not self.chat_history:
             self.chat_history.append({"role": "system", "content": system_instruction})
@@ -255,6 +378,12 @@ Language: Hinglish.
         for attempt in range(max_retries):
             try:
                 # --- GEMINI IMPLEMENTATION ---
+                if self.active_provider == "aihub":
+                    try:
+                        return hub_generate_text(full_prompt, model_override=self.active_model_id)
+                    except Exception as e:
+                        return f"Generation Error (aihub): {e}"
+
                 if self.active_provider == "gemini":
                     # Construct Prompt from History for Context
                     final_prompt = ""

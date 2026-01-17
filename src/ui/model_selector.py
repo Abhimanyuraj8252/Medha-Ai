@@ -1,4 +1,8 @@
 import flet as ft
+import os
+import json
+import os
+import json
 
 class ModelSelector(ft.Container):
     def __init__(self, brain, width=200):
@@ -9,8 +13,8 @@ class ModelSelector(ft.Container):
         self.width = width
         self.border_radius = 8
         self.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.WHITE)
-        self.border = ft.border.all(1, ft.Colors.with_opacity(0.2, ft.Colors.WHITE))
-        self.padding = ft.padding.only(left=15, right=5, top=2, bottom=2)
+        self.border = ft.Border.all(1, ft.Colors.with_opacity(0.2, ft.Colors.WHITE))
+        self.padding = ft.Padding(left=15, right=5, top=2, bottom=2)
         
         self.dropdown = self._build_dropdown()
         
@@ -48,8 +52,22 @@ class ModelSelector(ft.Container):
                 name = m['name'].replace("Gemini: ", "").replace("GEMINI: ", "")
                 options.append(ft.dropdown.Option(key=m['id'], text=name))
 
+        # 3. External (AI Hub)
+        external = self._load_external_models()
+        if external:
+            options.append(add_header("AI HUB"))
+            for m in external:
+                options.append(ft.dropdown.Option(key=f"hub:{m}", text=m))
+
+                # 3. AI Hub Models
+                hub_models = self._load_external_models()
+                if hub_models:
+                    options.append(add_header("AI HUB"))
+                    for m in hub_models:
+                        options.append(ft.dropdown.Option(key=f"hub:{m}", text=m))
+
         dropdown = ft.Dropdown(
-            value=self.brain.active_model_id,
+            value=f"hub:{self.brain.active_model_id}" if self.brain.active_provider == "aihub" else self.brain.active_model_id,
             options=options,
             text_size=13,
             height=35,
@@ -62,6 +80,13 @@ class ModelSelector(ft.Container):
         dropdown.on_change = self._handle_change
         return dropdown
 
+    def refresh_options(self):
+        """Rebuild dropdown options after models load."""
+        new_dropdown = self._build_dropdown()
+        self.dropdown.options = new_dropdown.options
+        self.dropdown.value = new_dropdown.value
+        self.dropdown.update()
+
     def _handle_change(self, e):
         selected_key = e.control.value
         # Prevent selecting headers (though they are disabled)
@@ -70,4 +95,28 @@ class ModelSelector(ft.Container):
             e.control.update()
             return
 
-        self.brain.set_model(selected_key)
+        if selected_key.startswith("hub:"):
+            self.brain.set_model(selected_key.replace("hub:", ""), provider="aihub")
+        else:
+            self.brain.set_model(selected_key)
+
+    def _load_external_models(self):
+        config_path = os.path.join(os.getcwd(), "user_data", "providers.json")
+        if not os.path.exists(config_path):
+            return []
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("models", [])
+        except Exception:
+            return []
+    def _load_external_models(self):
+        config_path = os.path.join(os.getcwd(), "user_data", "providers.json")
+        if not os.path.exists(config_path):
+            return []
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("models", [])
+        except Exception:
+            return []

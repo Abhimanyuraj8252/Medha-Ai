@@ -5,3 +5,7 @@ SpeechRecognition
 requests
 beautifulsoup4
 flet>=0.80.0
+psutil
+duckduckgo-search
+pytesseract
+pdf2image
