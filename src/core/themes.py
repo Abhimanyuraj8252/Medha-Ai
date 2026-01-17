@@ -25,18 +25,18 @@ THEMES = {
     "light": {
         "name": "Light Day",
         "emoji": "☀️",
-        "bg_primary": "#f5f5f5",
-        "bg_secondary": "#ffffff",
-        "bg_sidebar": "#e8e8e8",
-        "text_primary": "#1a1a1a",
-        "text_secondary": "#666666",
+        "bg_primary": "#ffffff",
+        "bg_secondary": "#f0f2f5",
+        "bg_sidebar": "#e4e6eb",
+        "text_primary": "#000000",
+        "text_secondary": "#222222",
         "accent": "#0066cc",
         "accent_secondary": "#6b21a8",
         "success": "#00aa55",
         "error": "#cc0000",
         "warning": "#cc8800",
-        "user_bubble": "#e3f2fd",
-        "ai_bubble": "#f5f5f5"
+        "user_bubble": "#e7f3ff",
+        "ai_bubble": "#ffffff"
     },
     "cyber": {
         "name": "Cyberpunk",

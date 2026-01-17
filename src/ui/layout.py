@@ -174,7 +174,15 @@ class MainLayout(ft.Row):
     
     def apply_theme(self, theme_id):
         """Apply new theme to the app"""
+        current_theme_name = theme.get_current_theme_name()
         current_theme = theme.get_theme()
+        
+        # Switch Flet Theme Mode
+        if current_theme_name == "light":
+            self._page.theme_mode = ft.ThemeMode.LIGHT
+        else:
+            self._page.theme_mode = ft.ThemeMode.DARK
+        self._page.update()
         
         # 1. Update Main Containers
         self.content_area.bgcolor = current_theme["bg_primary"]
