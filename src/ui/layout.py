@@ -38,7 +38,7 @@ class MainLayout(ft.Row):
         self.current_request_id = 0
         self.processing_request = False
         
-        # Init Views
+        # Init Views - Need to build these with current theme
         self.sidebar = self.build_sidebar()
         self.chat_view = self.build_chat_area()
         self.study_view = StudyNotesView(self.brain)
@@ -47,10 +47,11 @@ class MainLayout(ft.Row):
         self._settings_view = None  # Lazy loaded
         
         # Default View
+        current_theme = theme.get_theme()
         self.content_area = ft.Container(
             content=self.chat_view,
             expand=True,
-            bgcolor=ft.Colors.with_opacity(0.9, ft.Colors.BLACK),
+            bgcolor=current_theme["bg_primary"],
             padding=20,
         )
 
@@ -67,7 +68,7 @@ class MainLayout(ft.Row):
             width=0, 
             opacity=0,
             animate=300,
-            bgcolor=ft.Colors.BLACK54
+            bgcolor=current_theme["bg_secondary"]
         )
 
         self.controls = [
@@ -77,37 +78,40 @@ class MainLayout(ft.Row):
         ]
 
     def build_sidebar(self):
+        current_theme = theme.get_theme()
+        self.sidebar_column = ft.Column(
+            controls=[
+                ft.Text("Medha AI", size=24, weight=ft.FontWeight.BOLD, color=current_theme["accent"]),
+                ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
+                self.sidebar_button("Chat", ft.Icons.CHAT_BUBBLE, lambda e: self.navigate_to(self.chat_view)),
+                self.sidebar_button("Study Notes", ft.Icons.BOOK, lambda e: self.navigate_to(self.study_view)),
+                self.sidebar_button("Quiz Mode", ft.Icons.QUIZ, lambda e: self.navigate_to(self.quiz_view)),
+                self.sidebar_button("Coder Mode", ft.Icons.CODE, lambda e: self.navigate_to(self.coder_view)),
+                ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
+                self.sidebar_button("Settings", ft.Icons.SETTINGS, self.open_settings),
+                ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
+                ft.TextButton(
+                    "Export Chat",
+                    icon=ft.Icons.DOWNLOAD,
+                    on_click=self.export_chat,
+                    style=ft.ButtonStyle(color=current_theme["accent"])
+                ),
+                ft.TextButton(
+                    "Clear Chat History",
+                    icon=ft.Icons.DELETE_OUTLINE,
+                    on_click=self.clear_history,
+                    style=ft.ButtonStyle(color=current_theme["error"] if "error" in current_theme else ft.Colors.RED_300)
+                ),
+                ft.Container(expand=True),
+                ft.Text(f"v{updater.get_current_version()}", size=10, color=current_theme["text_secondary"])
+            ]
+        )
+        
         return ft.Container(
             width=250,
-            bgcolor=ft.Colors.with_opacity(0.8, "#1a1a1a"),
+            bgcolor=current_theme["bg_secondary"],
             padding=10,
-            content=ft.Column(
-                controls=[
-                    ft.Text("Medha AI", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_400),
-                    ft.Divider(color=ft.Colors.WHITE24),
-                    self.sidebar_button("Chat", ft.Icons.CHAT_BUBBLE, lambda e: self.navigate_to(self.chat_view)),
-                    self.sidebar_button("Study Notes", ft.Icons.BOOK, lambda e: self.navigate_to(self.study_view)),
-                    self.sidebar_button("Quiz Mode", ft.Icons.QUIZ, lambda e: self.navigate_to(self.quiz_view)),
-                    self.sidebar_button("Coder Mode", ft.Icons.CODE, lambda e: self.navigate_to(self.coder_view)),
-                    ft.Divider(color=ft.Colors.WHITE24),
-                    self.sidebar_button("Settings", ft.Icons.SETTINGS, self.open_settings),
-                    ft.Divider(color=ft.Colors.WHITE24),
-                    ft.TextButton(
-                        "Export Chat",
-                        icon=ft.Icons.DOWNLOAD,
-                        on_click=self.export_chat,
-                        style=ft.ButtonStyle(color=ft.Colors.CYAN_400)
-                    ),
-                    ft.TextButton(
-                        "Clear Chat History",
-                        icon=ft.Icons.DELETE_OUTLINE,
-                        on_click=self.clear_history,
-                        style=ft.ButtonStyle(color=ft.Colors.RED_300)
-                    ),
-                    ft.Container(expand=True),
-                    ft.Text(f"v{updater.get_current_version()}", size=10, color=ft.Colors.WHITE54)
-                ]
-            )
+            content=self.sidebar_column
         )
 
     def navigate_to(self, view_control):
@@ -167,16 +171,110 @@ class MainLayout(ft.Row):
     
     def apply_theme(self, theme_id):
         """Apply new theme to the app"""
-        # Rebuild settings view with new theme
+        current_theme = theme.get_theme()
+        
+        # 1. Update Main Containers
+        self.content_area.bgcolor = current_theme["bg_primary"]
+        self.history_container.bgcolor = current_theme["bg_secondary"]
+        
+        # 2. Rebuild Sidebar
+        # We replace the content of the existing sidebar container
+        self.sidebar.bgcolor = current_theme["bg_secondary"]
+        self.sidebar.content = ft.Column(
+            controls=[
+                ft.Text("Medha AI", size=24, weight=ft.FontWeight.BOLD, color=current_theme["accent"]),
+                ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
+                self.sidebar_button("Chat", ft.Icons.CHAT_BUBBLE, lambda e: self.navigate_to(self.chat_view)),
+                self.sidebar_button("Study Notes", ft.Icons.BOOK, lambda e: self.navigate_to(self.study_view)),
+                self.sidebar_button("Quiz Mode", ft.Icons.QUIZ, lambda e: self.navigate_to(self.quiz_view)),
+                self.sidebar_button("Coder Mode", ft.Icons.CODE, lambda e: self.navigate_to(self.coder_view)),
+                ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
+                self.sidebar_button("Settings", ft.Icons.SETTINGS, self.open_settings),
+                ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
+                ft.TextButton(
+                    "Export Chat",
+                    icon=ft.Icons.DOWNLOAD,
+                    on_click=self.export_chat,
+                    style=ft.ButtonStyle(color=current_theme["accent"])
+                ),
+                ft.TextButton(
+                    "Clear Chat History",
+                    icon=ft.Icons.DELETE_OUTLINE,
+                    on_click=self.clear_history,
+                    style=ft.ButtonStyle(color=current_theme["error"] if "error" in current_theme else ft.Colors.RED_300)
+                ),
+                ft.Container(expand=True),
+                ft.Text(f"v{updater.get_current_version()}", size=10, color=current_theme["text_secondary"])
+            ]
+        )
+        
+        # 3. Update Chat Area Components
+        self.input_container.bgcolor = ft.Colors.with_opacity(0.05, current_theme["text_primary"])
+        
+        self.input_box.text_style.color = current_theme["text_primary"]
+        self.input_box.hint_style.color = current_theme["text_secondary"]
+        self.input_box.bgcolor = ft.Colors.with_opacity(0.1, current_theme["text_primary"])
+        self.input_box.color = current_theme["text_primary"]
+        
+        self.history_btn.icon_color = current_theme["text_primary"]
+        self.mic_button.icon_color = current_theme["error"] if "error" in current_theme else ft.Colors.RED_400
+        
+        # 4. Update Model Selector
+        if hasattr(self, 'model_dropdown'):
+            self.model_dropdown.update_theme()
+            
+        # 5. Update Chat History Bubbles
+        for bubble in self.chat_history.controls:
+            if isinstance(bubble, ft.Row):
+                is_user = bubble.alignment == ft.MainAxisAlignment.END
+                new_bubble_color = current_theme["accent"] if is_user else current_theme["bg_secondary"]
+                
+                # Find the container with message content
+                # User: Row -> [Container]
+                # AI: Row -> [Column -> [Container, Container(Icon)]]
+                
+                message_container = None
+                icon_button = None
+                
+                if is_user:
+                    if len(bubble.controls) > 0 and isinstance(bubble.controls[0], ft.Container):
+                        message_container = bubble.controls[0]
+                else:
+                    if len(bubble.controls) > 0 and isinstance(bubble.controls[0], ft.Column):
+                        col = bubble.controls[0]
+                        if len(col.controls) > 0 and isinstance(col.controls[0], ft.Container):
+                            message_container = col.controls[0]
+                        # Update speak button icon color if present
+                        if len(col.controls) > 1:
+                            btn_container = col.controls[1]
+                            if isinstance(btn_container.content, ft.IconButton):
+                                icon_button = btn_container.content
+                
+                if message_container:
+                    message_container.bgcolor = new_bubble_color
+                    # Text color for user is white (on accent), for AI is text_primary
+                    # We can't easily change Markdown style inside without rebuilding, 
+                    # but usually Markdown inherits or we set it globally? 
+                    # Actually Markdown takes explicit style. 
+                    # Let's just update container bg for now, text usually adapts if not hardcoded.
+                
+                if icon_button:
+                     # Reset to default state color (not speaking)
+                     icon_button.icon_color = current_theme["accent"]
+
+        # 6. Rebuild settings view with new theme (if open)
         self._settings_view = SettingsView(self._page, on_theme_change=self.apply_theme)
-        if self.content_area.content == self._settings_view:
-            self.navigate_to(self._settings_view)
+        if self.content_area.content and isinstance(self.content_area.content, SettingsView):
+             self.navigate_to(self._settings_view)
+        
+        self.update()
 
     def sidebar_button(self, text, icon, on_click_handler):
+        current_theme = theme.get_theme()
         return ft.Container(
             content=ft.Row([
-                ft.Icon(icon, color=ft.Colors.WHITE54),
-                ft.Text(text, color=ft.Colors.WHITE54)
+                ft.Icon(icon, color=current_theme["text_secondary"]),
+                ft.Text(text, color=current_theme["text_secondary"])
             ]),
             padding=10,
             border_radius=10,
@@ -190,6 +288,8 @@ class MainLayout(ft.Row):
         pass
 
     def build_chat_area(self):
+        current_theme = theme.get_theme()
+        
         self.chat_history = ft.ListView(
             expand=True,
             spacing=10,
@@ -198,11 +298,14 @@ class MainLayout(ft.Row):
         
         self.input_box = ft.TextField(
             hint_text="Ask Medha anything...",
+            hint_style=ft.TextStyle(color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(color=current_theme["text_primary"]),
             border_color=ft.Colors.TRANSPARENT,
-            bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.WHITE),
+            bgcolor=ft.Colors.with_opacity(0.1, current_theme["text_primary"]),
             border_radius=20,
             expand=True,
-            on_submit=self.send_message
+            on_submit=self.send_message,
+            color=current_theme["text_primary"]
         )
         
         # Model Selector
@@ -211,17 +314,17 @@ class MainLayout(ft.Row):
         # History Toggle
         self.history_btn = ft.IconButton(
             icon=ft.Icons.HISTORY,
+            icon_color=current_theme["text_primary"],
             tooltip="Chat History",
             on_click=self.toggle_history
         )
         
         # Continuous voice mode state
         self.continuous_voice_mode = False
-        self.continuous_voice_mode = False
         
         self.mic_button = ft.IconButton(
             icon=ft.Icons.MIC,
-            icon_color=ft.Colors.RED_400,
+            icon_color=current_theme["error"] if "error" in current_theme else ft.Colors.RED_400,
             tooltip="🎤 Voice Input (Hindi/English)",
             on_click=self.start_listening
         )
@@ -233,6 +336,23 @@ class MainLayout(ft.Row):
             on_click=self.toggle_continuous_voice
         )
         
+        self.input_container = ft.Container(
+            content=ft.Row([
+                self.input_box,
+                self.mic_button,
+                self.continuous_voice_button,
+                ft.IconButton(
+                    icon=ft.Icons.SEND_ROUNDED, 
+                    icon_color=current_theme["accent"],
+                    tooltip="Send Message",
+                    on_click=self.send_message
+                )
+            ]),
+            padding=10,
+            bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]),
+            border_radius=25
+        )
+        
         return ft.Column([
             ft.Row([
                 self.history_btn, 
@@ -240,22 +360,7 @@ class MainLayout(ft.Row):
                 self.model_dropdown
             ], alignment=ft.MainAxisAlignment.END), # Header
             self.chat_history,
-            ft.Container(
-                content=ft.Row([
-                    self.input_box,
-                    self.mic_button,
-                    self.continuous_voice_button,
-                    ft.IconButton(
-                        icon=ft.Icons.SEND_ROUNDED, 
-                        icon_color=ft.Colors.CYAN_400,
-                        tooltip="Send Message",
-                        on_click=self.send_message
-                    )
-                ]),
-                padding=10,
-                bgcolor=ft.Colors.with_opacity(0.05, ft.Colors.WHITE),
-                border_radius=25
-            )
+            self.input_container
         ])
 
     def toggle_history(self, e):
@@ -512,12 +617,30 @@ Please answer the user's question based on the file content above."""
         self._page.update()
 
     def add_chat_bubble(self, text, is_user):
-        bubble_color = ft.Colors.CYAN_900 if is_user else "#2b2b2b"
+        current_theme = theme.get_theme()
+        bubble_color = current_theme["accent"] if is_user else current_theme["bg_secondary"]
+        # Make user bubble slightly darker than accent for better contrast if needed, or stick to accent
+        # Actually user bubble is typically distinction. Let's use accent for user, and a secondary bg for AI?
+        # Standard: User right (Accent), AI left (Secondary BG or Surface)
+        
+        if is_user:
+            bubble_color = current_theme["accent"]
+            text_color = ft.Colors.WHITE # Assuming accent is usually dark/vibrant
+        else:
+            bubble_color = current_theme["bg_secondary"]
+            text_color = current_theme["text_primary"]
+
         align = ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START
         
         # Create message content with text wrapping
         message_content = ft.Container(
-            content=ft.Markdown(text, selectable=True),
+            content=ft.Markdown(
+                text, 
+                selectable=True, 
+                extension_set="gitHubWeb",
+                code_theme="atom-one-dark",
+                code_style=ft.TextStyle(font_family="Roboto Mono"),
+            ),
             padding=15,
             bgcolor=bubble_color,
             border_radius=ft.BorderRadius.only(
@@ -533,7 +656,7 @@ Please answer the user's question based on the file content above."""
             # Create a speaker button that can be clicked again to stop
             speaker_button = ft.IconButton(
                 icon=ft.Icons.VOLUME_UP,
-                icon_color=ft.Colors.CYAN_400,
+                icon_color=current_theme["accent"],
                 icon_size=20,
                 tooltip="🔊 Speak / Stop",
                 data={"speaking": False}  # Track state
@@ -544,14 +667,14 @@ Please answer the user's question based on the file content above."""
                     # Stop speaking
                     self.voice.stop_speaking()
                     speaker_button.icon = ft.Icons.VOLUME_UP
-                    speaker_button.icon_color = ft.Colors.CYAN_400
+                    speaker_button.icon_color = current_theme["accent"]
                     speaker_button.data["speaking"] = False
                     speaker_button.update()
                 else:
                     # Start speaking
                     speech_text = text.replace("**", "").replace("*", "").replace("#", "")
                     speaker_button.icon = ft.Icons.STOP
-                    speaker_button.icon_color = ft.Colors.RED_400
+                    speaker_button.icon_color = current_theme["error"] if "error" in current_theme else ft.Colors.RED_400
                     speaker_button.data["speaking"] = True
                     speaker_button.update()
                     
@@ -560,7 +683,7 @@ Please answer the user's question based on the file content above."""
                     def speak_and_reset():
                         self.voice.speak(speech_text, lang='hi')
                         speaker_button.icon = ft.Icons.VOLUME_UP
-                        speaker_button.icon_color = ft.Colors.CYAN_400
+                        speaker_button.icon_color = current_theme["accent"]
                         speaker_button.data["speaking"] = False
                         try:
                             speaker_button.update()
