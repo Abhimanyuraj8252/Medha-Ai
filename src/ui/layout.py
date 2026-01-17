@@ -223,6 +223,11 @@ class MainLayout(ft.Row):
         if hasattr(self, 'model_dropdown'):
             self.model_dropdown.update_theme()
             
+        # Update Other Views
+        if self.study_view: self.study_view.update_theme()
+        if self.quiz_view: self.quiz_view.update_theme()
+        if self.coder_view: self.coder_view.update_theme()
+            
         # 5. Update Chat History Bubbles
         for bubble in self.chat_history.controls:
             if isinstance(bubble, ft.Row):

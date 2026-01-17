@@ -4,6 +4,7 @@ from core.session_manager import SessionManager
 from ui.history_view import SessionHistoryView
 from core.file_handler import FileHandler
 from ui.file_picker_helper import FilePickerHelper
+from core.themes import theme
 
 class StudyNotesView(ft.Column):
     def __init__(self, brain):
@@ -18,6 +19,9 @@ class StudyNotesView(ft.Column):
 
         self.file_helper = FilePickerHelper(FileHandler())
         
+        # Get Current Theme
+        current_theme = theme.get_theme()
+        
         # --- UI COMPONENTS ---
         
         # 1. Notes Display (Left Side)
@@ -25,13 +29,14 @@ class StudyNotesView(ft.Column):
             "📚 **Welcome to Smart Study!**\n\nEnter a topic on the right side to generate comprehensive notes.\nI can research online to get you the latest information.",
             selectable=True,
             extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
-            on_tap_link=lambda e: self.launch_url(e.data)
+            on_tap_link=lambda e: self.launch_url(e.data),
+            code_theme="atom-one-dark"
         )
         
         self.notes_contrainer = ft.Container(
             content=ft.Column([self.notes_display], scroll=ft.ScrollMode.AUTO),
             expand=True,
-            bgcolor=ft.Colors.with_opacity(0.05, ft.Colors.WHITE),
+            bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]),
             border_radius=10,
             padding=20
         )
@@ -42,9 +47,18 @@ class StudyNotesView(ft.Column):
             hint_text="Enter topic or ask for changes...",
             expand=True,
             border_radius=20,
-            on_submit=self.handle_chat_submit
+            on_submit=self.handle_chat_submit,
+            border_color=ft.Colors.TRANSPARENT,
+            bgcolor=ft.Colors.with_opacity(0.1, current_theme["text_primary"]),
+            color=current_theme["text_primary"],
+            hint_style=ft.TextStyle(color=current_theme["text_secondary"])
         )
-        self.file_button = ft.IconButton(ft.Icons.ATTACH_FILE, tooltip="Attach File(s)", on_click=self.open_file_picker)
+        self.file_button = ft.IconButton(
+            ft.Icons.ATTACH_FILE, 
+            tooltip="Attach File(s)", 
+            on_click=self.open_file_picker,
+            icon_color=current_theme["text_primary"]
+        )
 
         # --- MAIN LAYOUT ---
         # Model Selector
@@ -62,40 +76,95 @@ class StudyNotesView(ft.Column):
             content=self.history_view,
             width=0, opacity=0,
             animate=300,
-            bgcolor=ft.Colors.BLACK_54
+            bgcolor=current_theme["bg_secondary"]
         )
         
-        toggle_btn = ft.IconButton(ft.Icons.HISTORY, on_click=self.toggle_history, tooltip="Study History")
+        self.toggle_btn = ft.IconButton(
+            ft.Icons.HISTORY, 
+            on_click=self.toggle_history, 
+            tooltip="Study History",
+            icon_color=current_theme["text_primary"]
+        )
+
+        self.header_text = ft.Text("🎓 Advanced Study Companion", size=24, weight=ft.FontWeight.BOLD, color=current_theme["accent"])
+
+        self.chat_area_container = ft.Container(
+            content=ft.Column([
+                ft.Text("💬 Study Assistant", size=16, weight="bold", color=current_theme["text_primary"]),
+                ft.Container(content=self.chat_list, expand=True, bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]), border_radius=10, padding=10),
+                self.file_helper.preview_container,
+                ft.Row([
+                    self.file_button, 
+                    self.chat_input, 
+                    ft.IconButton(ft.Icons.SEND, on_click=self.handle_chat_submit, icon_color=current_theme["accent"])
+                ])
+            ]),
+            expand=4,
+            padding=10
+        )
 
         self.controls = [
             ft.Row([
-                ft.Text("🎓 Advanced Study Companion", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_400),
+                self.header_text,
                 ft.Container(expand=True),
-                toggle_btn,
+                self.toggle_btn,
                 self.model_dropdown
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            ft.Divider(color=ft.Colors.WHITE_24),
+            ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
             ft.Container(
                 content=ft.Row([
                     self.history_drawer,
                     # Left: Notes (60%)
                     ft.Container(content=self.notes_contrainer, expand=6),
                     # Right: Chat (40%)
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text("💬 Study Assistant", size=16, weight="bold"),
-                            ft.Container(content=self.chat_list, expand=True, bgcolor=ft.Colors.BLACK_12, border_radius=10, padding=10),
-                            self.file_helper.preview_container,
-                            ft.Row([self.file_button, self.chat_input, ft.IconButton(ft.Icons.SEND, on_click=self.handle_chat_submit)])
-                        ]),
-                        expand=4,
-                        padding=10
-                    )
+                    self.chat_area_container
                 ], expand=True),
                 expand=True
             )
         ]
     
+    def update_theme(self):
+        """Update colors based on current theme"""
+        current_theme = theme.get_theme()
+        
+        self.notes_contrainer.bgcolor = ft.Colors.with_opacity(0.05, current_theme["text_primary"])
+        self.chat_input.bgcolor = ft.Colors.with_opacity(0.1, current_theme["text_primary"])
+        self.chat_input.color = current_theme["text_primary"]
+        self.chat_input.hint_style.color = current_theme["text_secondary"]
+        
+        self.file_button.icon_color = current_theme["text_primary"]
+        self.toggle_btn.icon_color = current_theme["text_primary"]
+        self.header_text.color = current_theme["accent"]
+        self.history_drawer.bgcolor = current_theme["bg_secondary"]
+        
+        # Update Chat Area Background
+        # The container holding chat_list (2nd child of chat_area_container's Column)
+        if len(self.chat_area_container.content.controls) > 1:
+             self.chat_area_container.content.controls[1].bgcolor = ft.Colors.with_opacity(0.05, current_theme["text_primary"])
+             self.chat_area_container.content.controls[0].color = current_theme["text_primary"] # Header text
+        
+        # Update send button color
+        row_controls = self.chat_area_container.content.controls[3].controls
+        if len(row_controls) > 2:
+             row_controls[2].icon_color = current_theme["accent"]
+
+        # Update Model Selector
+        self.model_dropdown.update_theme()
+        
+        # Update existing bubbles
+        for row in self.chat_list.controls:
+             if isinstance(row, ft.Row) and len(row.controls) > 0:
+                  bubble = row.controls[0]
+                  is_user = row.alignment == ft.MainAxisAlignment.END
+                  bubble.bgcolor = current_theme["accent"] if is_user else ft.Colors.with_opacity(0.1, current_theme["text_primary"])
+                  # Update Text Color inside bubble if needed
+                  content_col = bubble.content
+                  if isinstance(content_col, ft.Column) and len(content_col.controls) > 0:
+                       header_text = content_col.controls[0]
+                       header_text.color = ft.Colors.with_opacity(0.7, ft.Colors.WHITE) if is_user else current_theme["text_secondary"]
+
+        self.update()
+
     def did_mount(self):
         """Called when control is added to page"""
         if self.page:
@@ -114,12 +183,14 @@ class StudyNotesView(ft.Column):
         pass
 
     def add_chat_bubble(self, text, is_user=False, run_update=True):
+        current_theme = theme.get_theme()
+        
         bubble = ft.Container(
             content=ft.Column([
-                ft.Text("You" if is_user else "Medha Tutor", size=10, color=ft.Colors.WHITE_54),
-                ft.Markdown(text)
+                ft.Text("You" if is_user else "Medha Tutor", size=10, color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE) if is_user else current_theme["text_secondary"]),
+                ft.Markdown(text, code_theme="atom-one-dark")
             ]),
-            bgcolor=ft.Colors.ORANGE_900 if is_user else ft.Colors.with_opacity(0.1, ft.Colors.WHITE),
+            bgcolor=current_theme["accent"] if is_user else ft.Colors.with_opacity(0.1, current_theme["text_primary"]),
             padding=10,
             border_radius=10,
             width=None if is_user else 300
@@ -171,11 +242,7 @@ class StudyNotesView(ft.Column):
         for msg in self.chat_history:
              is_user = msg['role'] == 'user'
              self.add_chat_bubble(msg['content'], is_user=is_user, run_update=False)
-             # Remove duplicate add to history since add_chat_bubble adds it again? 
-             # Wait, add_chat_bubble appends to self.chat_history. 
-             # If I call it loop, I will double the history.
-             # I should modify add_chat_bubble or handle manually.
-             self.chat_history.pop() # Remove the duplicate added by add_chat_bubble
+             self.chat_history.pop() # Remove duplicate caused by add_chat_bubble
         
         self.history_view.current_session_id = session_id
         self.history_view.refresh_list()
