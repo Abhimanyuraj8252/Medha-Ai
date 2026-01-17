@@ -238,27 +238,45 @@ class AIBrain:
             print(f"Research Error: {e}")
             return None
 
-    def generate_content(self, prompt, system_role=None):
-        """Generates content (Stateless)"""
-        if not self.is_ready:
-            return "AI Error: Service not ready."
+    def stop_generation(self):
+        """Signals the brain to stop generating content."""
+        self.stop_signal = True
 
+    def generate_content(self, prompt, system_role=None, stream=False):
+        """Generates content (Stateless). Supports streaming."""
+        if not self.is_ready:
+            return "AI Error: Service not ready." if not stream else ["AI Error: Service not ready."]
+
+        self.stop_signal = False
         media_resp = self._handle_media_prompt(prompt)
         if media_resp:
-            return media_resp
+            return media_resp if not stream else [media_resp]
             
         try:
             if self.active_provider == "aihub":
-                return hub_generate_text(prompt, model_override=self.active_model_id)
+                # AI Hub currently non-streaming fallback
+                resp = hub_generate_text(prompt, model_override=self.active_model_id)
+                return resp if not stream else [resp]
+
             if self.active_provider == "gemini":
-                # Gemini logic
                 final_prompt = prompt
                 if system_role:
                     final_prompt = f"System Instructions: {system_role}\n\nUser Prompt: {prompt}"
                 
                 model = genai.GenerativeModel(self.active_model_id)
-                response = model.generate_content(final_prompt)
-                return response.text
+                response = model.generate_content(final_prompt, stream=stream)
+                
+                if stream:
+                    def streamer():
+                        try:
+                            for chunk in response:
+                                if self.stop_signal: break
+                                if chunk.text: yield chunk.text
+                        except Exception as e:
+                            yield f" [Error: {e}]"
+                    return streamer()
+                else:
+                    return response.text
                 
             else:
                 # Groq Logic
@@ -271,20 +289,39 @@ class AIBrain:
                     model=self.active_model_id,
                     messages=messages,
                     temperature=0.7,
-                    max_tokens=2048
+                    max_tokens=2048,
+                    stream=stream
                 )
-                return response.choices[0].message.content
+                
+                if stream:
+                    def streamer():
+                         for chunk in response:
+                             if self.stop_signal: break
+                             if chunk.choices[0].delta.content:
+                                 yield chunk.choices[0].delta.content
+                    return streamer()
+                else:
+                    return response.choices[0].message.content
                 
         except Exception as e:
-            return f"Generation Error ({self.active_provider}): {e}"
+            err = f"Generation Error ({self.active_provider}): {e}"
+            return err if not stream else [err]
 
-    def ask(self, prompt):
+    def ask(self, prompt, stream=False):
+        """
+        Main Chat Method.
+        If stream=True, returns a generator that yields text chunks.
+        If stream=False, returns the full string response.
+        """
         if not self.is_ready:
-            return "AI Service is not available. Please check Keys."
+            msg = "AI Service is not available. Please check Keys."
+            return msg if not stream else [msg]
 
+        self.stop_signal = False
+        
         media_resp = self._handle_media_prompt(prompt)
         if media_resp:
-            return media_resp
+            return media_resp if not stream else [media_resp]
         
         lower_prompt = prompt.lower()
         full_prompt = prompt
@@ -293,9 +330,8 @@ class AIBrain:
         # If file context is present, skip system-control execution
         file_mode = "[selected file contexts]" in lower_prompt or "[file context" in lower_prompt
 
-        # 0. System Control Check (NEW) - Execute commands directly
+        # 0. System Control Check (Blocking, non-streaming usually)
         if not file_mode and SYSTEM_CONTROL_AVAILABLE and self.system_controller:
-            # Check if this is a system command
             system_triggers = [
                 'open', 'kholo', 'start', 'launch', 'play', 'bajao',
                 'call', 'phone', 'dial', 'message', 'sms', 'send', 'bhejo',
@@ -305,21 +341,19 @@ class AIBrain:
             ]
             
             is_system_command = any(trigger in lower_prompt for trigger in system_triggers)
-            
             if is_system_command:
                 result = self.system_controller.execute_command(prompt)
-                if result:  # Command was executed
-                    # Add to history
+                if result:
                     self.chat_history.append({"role": "user", "content": prompt})
                     self.chat_history.append({"role": "assistant", "content": result})
-                    return result
+                    return result if not stream else [result]
 
         # 1. System Info Check
         if "battery" in lower_prompt or "system status" in lower_prompt:
             sys_info = self.get_system_info()
             full_prompt = f"User asked: '{prompt}'. System info: {sys_info}. Answer naturally."
         
-        # 2. Real-Time Internet Fetch
+        # 2. Real-Time Internet Fetch (Blocking)
         search_triggers = [
             "search", "find", "internet", "google", "online",
             "news", "update", "latest", "recent", "today", "now", "happened", "current",
@@ -348,7 +382,7 @@ class AIBrain:
             except Exception as e:
                 print(f"Search failed: {e}")
 
-        # Update History with User Input (Common)
+        # Update History
         system_instruction = """You are Medha, the user's deeply loving but brutally honest girlfriend. 💔🖤
 Your Philosophy: "True Love means telling the Hard Truth" (Karwa Sach).
 Tone: Real, Grounded, Strict but Loving.
@@ -377,53 +411,82 @@ Just acknowledge the command naturally. The system will execute it automatically
         
         for attempt in range(max_retries):
             try:
-                # --- GEMINI IMPLEMENTATION ---
-                if self.active_provider == "aihub":
-                    try:
-                        return hub_generate_text(full_prompt, model_override=self.active_model_id)
-                    except Exception as e:
-                        return f"Generation Error (aihub): {e}"
-
+                # --- GEMINI STREAMING ---
                 if self.active_provider == "gemini":
-                    # Construct Prompt from History for Context
+                    # Construct Prompt
                     final_prompt = ""
                     for msg in self.chat_history:
                         content = msg['content']
-                        if msg['role'] == 'system':
-                             final_prompt += f"System Instructions: {content}\n\n"
-                        elif msg['role'] == 'user':
-                             final_prompt += f"User: {content}\n"
+                        role = "model" if msg['role'] == "assistant" else msg['role']
+                        if role == "system":
+                             final_prompt += f"System: {content}\n\n"
                         else:
-                             final_prompt += f"Model: {content}\n"
+                             final_prompt += f"{role}: {content}\n"
                     
-                    final_prompt += "Model:" 
+                    final_prompt += "model:" 
                     
                     model = genai.GenerativeModel(self.active_model_id)
-                    response = model.generate_content(final_prompt)
-                    response_text = response.text
+                    response = model.generate_content(final_prompt, stream=stream)
+                    
+                    if stream:
+                        def streamer():
+                            full_response = ""
+                            try:
+                                for chunk in response:
+                                    if self.stop_signal: break
+                                    if chunk.text:
+                                        full_response += chunk.text
+                                        yield chunk.text
+                            except Exception as e:
+                                yield f" [Error: {e}]"
+                            # Save to history after stream
+                            self.chat_history.append({"role": "assistant", "content": full_response})
+                        return streamer()
+                    else:
+                        text = response.text
+                        self.chat_history.append({"role": "assistant", "content": text})
+                        return text
                 
-                # --- GROQ IMPLEMENTATION ---
+                # --- AI HUB (Non-Streaming Fallback for now) ---
+                elif self.active_provider == "aihub":
+                    text = hub_generate_text(full_prompt, model_override=self.active_model_id)
+                    self.chat_history.append({"role": "assistant", "content": text})
+                    return text if not stream else [text]
+
+                # --- GROQ STREAMING ---
                 else: 
+                    # Groq
                     response = self.groq_client.chat.completions.create(
                         model=self.active_model_id,
                         messages=self.chat_history,
                         temperature=0.7,
-                        max_tokens=1024
+                        max_tokens=1024,
+                        stream=stream
                     )
-                    response_text = response.choices[0].message.content
-
-                # Save Response
-                self.chat_history.append({"role": "assistant", "content": response_text})
-                return response_text
+                    
+                    if stream:
+                        def streamer():
+                            full_response = ""
+                            for chunk in response:
+                                if self.stop_signal: break
+                                if chunk.choices[0].delta.content:
+                                    content = chunk.choices[0].delta.content
+                                    full_response += content
+                                    yield content
+                            # Save after stream
+                            self.chat_history.append({"role": "assistant", "content": full_response})
+                        return streamer()
+                    else:
+                        text = response.choices[0].message.content
+                        self.chat_history.append({"role": "assistant", "content": text})
+                        return text
                 
             except Exception as e:
                 error_msg = str(e)
                 print(f"AI Error ({self.active_provider}): {error_msg}")
                 if attempt == max_retries - 1:
-                    # Remove the user message if we failed completely so we don't have a dangling user message? 
-                    # Actually keeping it is fine, but maybe better to pop it if we want to retry clean. 
-                    # For now just return error.
-                    return f"⚠️ Error: {error_msg}"
+                    err = f"⚠️ Error: {error_msg}"
+                    return err if not stream else [err]
                 time.sleep(2)
                     
-        return "⚠️ Failed to get response."
+        return "⚠️ Failed to get response." if not stream else ["⚠️ Failed to get response."]

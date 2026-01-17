@@ -82,9 +82,86 @@ class QuizView(ft.Column):
 
         self.header_text = ft.Text("🧠 Interactive Quiz Master", size=24, weight=ft.FontWeight.BOLD, color=current_theme["accent"])
 
+        # Quiz Controls
+        self.diff_dropdown = ft.Dropdown(
+            options=[
+                ft.dropdown.Option("Easy"),
+                ft.dropdown.Option("Medium"),
+                ft.dropdown.Option("Hard"),
+                ft.dropdown.Option("Expert"),
+            ],
+            value="Medium",
+            expand=True,
+            label="Difficulty",
+            height=40,
+            content_padding=10,
+            label_style=ft.TextStyle(size=10, color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(size=12, color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+        )
+        
+        self.lang_dropdown = ft.Dropdown(
+            options=[
+                ft.dropdown.Option("English"),
+                ft.dropdown.Option("Hindi (Pure)"),
+                ft.dropdown.Option("Hinglish (Mix)"),
+                ft.dropdown.Option("Simple English"),
+                ft.dropdown.Option("Marathi"),
+                ft.dropdown.Option("Bengali"),
+                ft.dropdown.Option("Tamil"),
+                ft.dropdown.Option("Telugu"),
+                ft.dropdown.Option("Kannada"),
+                ft.dropdown.Option("Spanish"),
+                ft.dropdown.Option("French"),
+                ft.dropdown.Option("German"),
+            ],
+            value="English",
+            expand=True,
+            label="Language",
+            height=40,
+            content_padding=10,
+            text_size=12,
+            label_style=ft.TextStyle(size=10, color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(size=12, color=current_theme["text_primary"]),
+            border_radius=5,
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+        )
+
+        self.count_input = ft.TextField(
+            value="10",
+            width=80,
+            label="Count",
+            height=40,
+            content_padding=10,
+            keyboard_type=ft.KeyboardType.NUMBER,
+            text_style=ft.TextStyle(size=12, color=current_theme["text_primary"]),
+            label_style=ft.TextStyle(size=10, color=current_theme["text_secondary"]),
+            border_radius=5,
+            bgcolor=ft.Colors.with_opacity(0.1, current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+        )
+
+        self.config_tile = ft.ExpansionTile(
+            title=ft.Text("⚙️ Quiz Configuration", size=14, weight="bold", color=current_theme["text_primary"]),
+            subtitle=ft.Text("Customize difficulty, language & count", size=11, color=current_theme["text_secondary"]),
+            collapsed_text_color=current_theme["text_secondary"],
+            text_color=current_theme["accent"],
+            icon_color=current_theme["accent"],
+            controls=[
+                ft.Container(
+                    content=ft.Column([
+                        ft.Row([self.diff_dropdown, self.lang_dropdown], spacing=10),
+                        ft.Row([self.count_input], spacing=10),
+                    ]),
+                    padding=10,
+                )
+            ]
+        )
+
         self.chat_area_container = ft.Container(
             content=ft.Column([
-                ft.Text("💬 Quiz Config", size=16, weight="bold", color=current_theme["text_primary"]),
+                self.config_tile,
+                ft.Divider(height=1, color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
                 ft.Container(content=self.chat_list, expand=True, bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]), border_radius=10, padding=10),
                 self.file_helper.preview_container,
                 ft.Row([
@@ -96,7 +173,7 @@ class QuizView(ft.Column):
             expand=4,
             padding=10
         )
-
+ 
         self.controls = [
             ft.Row([
                 self.header_text,
@@ -126,6 +203,12 @@ class QuizView(ft.Column):
         self.chat_input.color = current_theme["text_primary"]
         self.chat_input.hint_style.color = current_theme["text_secondary"]
         
+        # Update dropdowns
+        for ctrl in [self.diff_dropdown, self.count_input]:
+             ctrl.text_style.color = current_theme["text_primary"]
+             ctrl.label_style.color = current_theme["text_secondary"]
+             ctrl.border_color = ft.Colors.with_opacity(0.2, current_theme["text_primary"])
+        
         self.file_button.icon_color = current_theme["text_primary"]
         self.toggle_btn.icon_color = current_theme["text_primary"]
         self.header_text.color = current_theme["accent"]
@@ -134,7 +217,8 @@ class QuizView(ft.Column):
         # Update Chat Area Background
         if len(self.chat_area_container.content.controls) > 1:
              self.chat_area_container.content.controls[1].bgcolor = ft.Colors.with_opacity(0.05, current_theme["text_primary"])
-             self.chat_area_container.content.controls[0].color = current_theme["text_primary"] # Header
+             # Header row text
+             self.chat_area_container.content.controls[0].controls[0].color = current_theme["text_primary"]
         
         # Update send button color
         row_controls = self.chat_area_container.content.controls[3].controls
@@ -161,7 +245,7 @@ class QuizView(ft.Column):
         
         if self.page:
             self.update()
-    
+
     def did_mount(self):
         """Called when control is added to page"""
         if self.page:
@@ -175,7 +259,7 @@ class QuizView(ft.Column):
     def open_file_picker(self, e):
         self.file_helper.open_picker()
 
-    def toggle_history(self, e):
+    def toggle_history(self, e=None):
         if self.history_drawer.width == 0:
             self.history_drawer.width = 250
             self.history_drawer.opacity = 1
@@ -270,7 +354,6 @@ class QuizView(ft.Column):
         self.chat_input.value = ""
         if prompt:
             self.add_chat_bubble(prompt, is_user=True)
-        # Update called in add_chat_bubble
 
         # Image generation shortcut
         if prompt.strip().lower().startswith("/image") or prompt.strip().lower().startswith("image:"):
@@ -288,75 +371,214 @@ class QuizView(ft.Column):
             self.refine_quiz(prompt)
 
     def generate_new_quiz(self, topic):
-        self.add_chat_bubble(f"🎲 Researching & Generating quiz on '{topic}'...", is_user=False)
+        try:
+            count = int(self.count_input.value)
+            if count < 1: count = 5
+            # No limit check here as requested by user
+        except ValueError:
+            count = 5 # Default
+            
+        difficulty = self.diff_dropdown.value
+        language = self.lang_dropdown.value
         
-        # 1. Research for accuracy (User requested real-time everything)
+        self.add_chat_bubble(f"🎲 Generating {count} {difficulty} questions on '{topic}' in {language}...", is_user=False)
+        
+        # 1. Research for accuracy
         research_context = ""
         try:
-            # We use a broad search to ensure we have facts even for historical topics
+             # Force research for better quality
             res = self.brain.deep_research(topic) 
             if res:
                 research_context = res.get('context', '')
         except:
-            pass # Fallback to internal knowledge
+            pass
 
-        # 2. Generate Content
-        # We use strict JSON prompting.
+        if language == "Hindi (Pure)":
+            lang_instruction = "Write completely in Hindi using Devanagari script (e.g., 'नमस्ते'). Do NOT use English script."
+        elif language == "Hinglish (Mix)":
+            lang_instruction = "Write in Hinglish: Use English script (Latin) for Hindi words (e.g., 'Kya haal hai?')."
+        elif language == "Simple English":
+            lang_instruction = "Write in simple English."
+        elif language in ["Marathi", "Bengali", "Tamil", "Telugu", "Kannada"]:
+            lang_instruction = f"Write completely in {language} using its native script."
+        else:
+            lang_instruction = f"Write in standard {language}."
+
+        # 2. Generate Content with Streaming
         system_prompt = f"""You are a Quiz Generator.
-        Topic: {topic}
-        Context from Internet: {research_context[:2000] if research_context else "None"}
+Topic: {topic}
+Difficulty: {difficulty}
+Language: {language}
+Context: {research_context[:3000] if research_context else "None"}
+
+Task: Stream {count} multiple choice questions one by one.
+Format: JSON Object per line. Separate each object with '@@@'.
+Example:
+@@@ {{"id": 1, "question": "...", "options": ["..."], "correct_index": 0, "explanation": "..."}} @@@
+@@@ {{"id": 2, ...}} @@@
+
+Rules:
+- "id": integer
+- "options": list of 4 strings (No A/B prefixes)
+- "correct_index": 0-3
+- "explanation": concise string
+- NO Markdown code blocks. Just raw text/json with @@@ separators.
+- LANGUAGE INSTRUCTION: {lang_instruction}
+"""
         
-        Task: Generate 5 multiple choice questions based on the topic/context.
-        Format: JSON Array.
-        [
-          {{
-            "id": 1,
-            "question": "...",
-            "options": ["...", "...", "...", "..."],
-            "correct_index": 0,
-            "explanation": "..."
-          }}
-        ]
+        self.toggle_history() # Close history to show quiz
         
-        Format Rules:
-        - "id" is integer 1 to 5.
-        - "options" is a list of 4 strings. DO NOT prefix with A), B) etc, just the text.
-        - "correct_index" is 0-3.
-        - "explanation" explains why the answer is right.
-        - JSON ONLY. No markdown blocks.
-        """
+        self.quiz_data = [] 
+        self.quiz_list.controls.clear()
+        self.quiz_list.update()
         
-        response = self.brain.generate_content(topic, system_role=system_prompt)
-        self.process_quiz_json(response)
+        # Streaming Loop
+        buffer = ""
+        try:
+            response_gen = self.brain.generate_content(topic, system_role=system_prompt, stream=True)
+            
+            # Check if response is string (error)
+            if isinstance(response_gen, str):
+                self.add_chat_bubble(f"❌ Error: {response_gen}", is_user=False)
+                return
+
+            question_count = 0
+            
+            for chunk in response_gen:
+                buffer += chunk
+                
+                if "@@@" in buffer:
+                    parts = buffer.split("@@@")
+                    buffer = parts.pop()
+                    
+                    for part in parts:
+                        part = part.strip()
+                        if not part: continue
+                        
+                        try:
+                            # Clean potential markdown
+                            if part.startswith("json"): part = part[4:] 
+                            if part.startswith("```"): part = part.replace("```", "")
+                            
+                            q_data = json.loads(part)
+                            
+                            self.quiz_data.append(q_data)
+                            self.add_quiz_card(q_data)
+                            question_count += 1
+                            self.quiz_list.update()
+                            try:
+                                self.quiz_list.scroll_to(offset=-1, duration=500)
+                            except: pass
+                            
+                        except json.JSONDecodeError:
+                            pass
+                            
+            if buffer.strip():
+                try:
+                    clean = buffer.strip().replace("@@@", "").replace("```json", "").replace("```", "")
+                    if clean:
+                        q_data = json.loads(clean)
+                        self.quiz_data.append(q_data)
+                        self.add_quiz_card(q_data)
+                        self.quiz_list.update()
+                except: pass
+                
+        except Exception as e:
+            self.add_chat_bubble(f"⚠️ Error during streaming: {str(e)}", is_user=False)
+
+        if len(self.quiz_data) == 0:
+             self.add_chat_bubble("⚠️ No questions were generated. Try a simpler topic.", is_user=False)
+        else:
+             self.add_chat_bubble(f"✅ Generated {len(self.quiz_data)} questions!", is_user=False)
 
     def refine_quiz(self, instruction):
-        self.add_chat_bubble("🔄 Updating quiz...", is_user=False)
-        current_state = json.dumps(self.quiz_data)
+        self.add_chat_bubble("✍️ Adding more questions...", is_user=False)
         
+        # Get current config
+        difficulty = self.diff_dropdown.value
+        language = self.lang_dropdown.value
+        
+        # Determine strict language prompt
+        if language == "Hindi (Pure)":
+            lang_instruction = "Write completely in Hindi using Devanagari script. Do NOT use English script."
+        elif language == "Hinglish (Mix)":
+             lang_instruction = "Write in Hinglish (English script for Hindi)."
+        else:
+             lang_instruction = f"Write in {language}."
+
+        # Start ID for new questions
+        start_id = len(self.quiz_data) + 1
+        count = 5 # Default for refinement
+
         system_prompt = f"""You are a Quiz Generator.
-        Current Quiz: {current_state}
         User Request: {instruction}
+        Difficulty: {difficulty}
+        Language: {language}
         
-        Task: Return a NEW JSON Array with the modified questions.
-        Maintain the exact same JSON structure as before.
+        Task: Generate {count} NEW additional multiple choice questions.
+        Format: JSON Object per line. Separate with '@@@'.
+        
+        Rules:
+        - Start IDs from {start_id}.
+        - "options": list of 4 strings.
+        - "correct_index": 0-3.
+        - NO Markdown.
+        - LANGUAGE INSTRUCTION: {lang_instruction}
         """
-        response = self.brain.generate_content("Update the quiz", system_role=system_prompt)
-        self.process_quiz_json(response)
+        
+        # Streaming Logic (Reuse/Duplicate for simplicity or refactor later)
+        buffer = ""
+        questions_added = 0
+        try:
+            response_gen = self.brain.generate_content("Add questions", system_role=system_prompt, stream=True)
+            
+            # Check if response is string (error)
+            if isinstance(response_gen, str):
+                self.add_chat_bubble(f"❌ Error: {response_gen}", is_user=False)
+                return
+
+            for chunk in response_gen:
+                buffer += chunk
+                if "@@@" in buffer:
+                    parts = buffer.split("@@@")
+                    buffer = parts.pop()
+                    for part in parts:
+                        part = part.strip()
+                        if not part: continue
+                        try:
+                            if part.startswith("json"): part = part[4:] 
+                            if part.startswith("```"): part = part.replace("```", "")
+                            q_data = json.loads(part)
+                            
+                            # Append to existing data
+                            self.quiz_data.append(q_data)
+                            self.add_quiz_card(q_data)
+                            questions_added += 1
+                            self.quiz_list.update()
+                            try:
+                                self.quiz_list.scroll_to(offset=-1, duration=500)
+                            except: pass
+                        except json.JSONDecodeError: pass
+            
+            # Handle remainder
+            if buffer.strip():
+                 try:
+                    clean = buffer.strip().replace("@@@", "").replace("```json", "").replace("```", "")
+                    if clean:
+                        q_data = json.loads(clean)
+                        self.quiz_data.append(q_data)
+                        self.add_quiz_card(q_data)
+                        questions_added += 1
+                        self.quiz_list.update()
+                 except: pass
+
+            self.add_chat_bubble(f"✅ Added {questions_added} new questions!", is_user=False)
+            
+        except Exception as e:
+            self.add_chat_bubble(f"❌ Error adding questions: {e}", is_user=False)
 
     def process_quiz_json(self, response):
-        try:
-            clean_json = response.replace("```json", "").replace("```", "").strip()
-            # Handle potential outer text
-            start = clean_json.find('[')
-            end = clean_json.rfind(']') + 1
-            if start != -1 and end != -1:
-                clean_json = clean_json[start:end]
-                
-            self.quiz_data = json.loads(clean_json)
-            self.render_quiz()
-            self.add_chat_bubble("✅ Quiz Ready! Good luck!", is_user=False)
-        except Exception as e:
-            self.add_chat_bubble(f"❌ Error generating quiz: {e}\nRaw: {response[:100]}...", is_user=False)
+        pass # Deprecated/Unused now that we use streaming in refine_quiz
 
     def render_quiz(self, update_theme_only=False):
         self.quiz_list.controls.clear()

@@ -14,15 +14,23 @@ import warnings
 # Suppress warnings to keep the console clean for the user
 warnings.filterwarnings("ignore")
 
+from core.themes import theme
+
 def main(page: ft.Page):
     # Hide window initially to prevent "Flet" splash
     page.window.visible = False
     
     # Window setup
     page.title = APP_NAME
-    page.theme_mode = ft.ThemeMode.DARK
+    
+    # Get saved theme
+    saved_theme_name = theme.get_current_theme_name()
+    saved_theme = theme.get_theme()
+    
+    # Apply saved theme mode
+    page.theme_mode = ft.ThemeMode.LIGHT if saved_theme_name == "light" else ft.ThemeMode.DARK
+    page.bgcolor = saved_theme["bg_primary"]
     page.padding = 0
-    page.bgcolor = "#0a0a0f"
     
     # Window settings for Flet 0.80+
     page.window.width = 1200

@@ -88,20 +88,130 @@ class StudyNotesView(ft.Column):
 
         self.header_text = ft.Text("🎓 Advanced Study Companion", size=24, weight=ft.FontWeight.BOLD, color=current_theme["accent"])
 
+        self.stop_button = ft.IconButton(
+            ft.Icons.STOP_CIRCLE_OUTLINED,
+            tooltip="Stop Generation",
+            icon_color=current_theme["error"],
+            visible=False,
+            on_click=self.stop_generation_click
+        )
+        
+        self.send_button = ft.IconButton(ft.Icons.SEND, on_click=self.handle_chat_submit, icon_color=current_theme["accent"])
+
+        # Config Controls
+        # Config Controls (Grouped in ExpansionTile)
+        self.purpose_dropdown = ft.Dropdown(
+            options=[
+                ft.dropdown.Option("General Study"),
+                ft.dropdown.Option("Exam Prep"),
+                ft.dropdown.Option("Placement/Interview"),
+                ft.dropdown.Option("Deep Dive Research"),
+            ],
+            value="General Study",
+            expand=True,
+            label="Purpose",
+            height=40,
+            content_padding=10,
+            text_size=12,
+            label_style=ft.TextStyle(size=10, color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(size=12, color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+        )
+        
+        self.level_dropdown = ft.Dropdown(
+            options=[
+                ft.dropdown.Option("Beginner"),
+                ft.dropdown.Option("Intermediate"),
+                ft.dropdown.Option("Advanced"),
+                ft.dropdown.Option("Extreme/PhD"),
+            ],
+            value="Intermediate",
+            expand=True,
+            label="Level",
+            height=40,
+            content_padding=10,
+            text_size=12,
+            label_style=ft.TextStyle(size=10, color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(size=12, color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+        )
+
+        self.lang_dropdown = ft.Dropdown(
+            options=[
+                ft.dropdown.Option("English"),
+                ft.dropdown.Option("Hindi (Pure)"),
+                ft.dropdown.Option("Hinglish (Mix)"),
+                ft.dropdown.Option("Simple English"),
+                ft.dropdown.Option("Marathi"),
+                ft.dropdown.Option("Bengali"),
+                ft.dropdown.Option("Tamil"),
+                ft.dropdown.Option("Telugu"),
+                ft.dropdown.Option("Kannada"),
+                ft.dropdown.Option("Spanish"),
+                ft.dropdown.Option("French"),
+                ft.dropdown.Option("German"),
+            ],
+            value="English",
+            expand=True,
+            label="Language",
+            height=40,
+            content_padding=10,
+            text_size=12,
+            label_style=ft.TextStyle(size=10, color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(size=12, color=current_theme["text_primary"]),
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+        )
+
+        self.pages_input = ft.TextField(
+            value="3",
+            width=80,
+            label="Pages",
+            height=40,
+            content_padding=10,
+            text_size=12,
+            keyboard_type=ft.KeyboardType.NUMBER,
+            label_style=ft.TextStyle(size=10, color=current_theme["text_secondary"]),
+            text_style=ft.TextStyle(size=12, color=current_theme["text_primary"]),
+            border_radius=5,
+            border_color=ft.Colors.with_opacity(0.2, current_theme["text_primary"]),
+            bgcolor=ft.Colors.with_opacity(0.1, current_theme["text_primary"]),
+        )
+
+        self.config_tile = ft.ExpansionTile(
+            title=ft.Text("⚙️ Study Configuration", size=14, weight="bold", color=current_theme["text_primary"]),
+            subtitle=ft.Text("Customize purpose, level, language & length", size=11, color=current_theme["text_secondary"]),
+            collapsed_text_color=current_theme["text_secondary"],
+            text_color=current_theme["accent"],
+            icon_color=current_theme["accent"],
+            controls=[
+                ft.Container(
+                    content=ft.Column([
+                        ft.Row([self.purpose_dropdown, self.level_dropdown], spacing=10),
+                        ft.Row([self.lang_dropdown, self.pages_input], spacing=10),
+                    ]),
+                    padding=10,
+                )
+            ]
+        )
+
         self.chat_area_container = ft.Container(
             content=ft.Column([
-                ft.Text("💬 Study Assistant", size=16, weight="bold", color=current_theme["text_primary"]),
+                self.config_tile,
+                ft.Divider(height=1, color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
                 ft.Container(content=self.chat_list, expand=True, bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]), border_radius=10, padding=10),
                 self.file_helper.preview_container,
                 ft.Row([
                     self.file_button, 
                     self.chat_input, 
-                    ft.IconButton(ft.Icons.SEND, on_click=self.handle_chat_submit, icon_color=current_theme["accent"])
-                ])
+                    self.stop_button,
+                    self.send_button
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
             ]),
             expand=4,
             padding=10
         )
+        
+        self.processing_request = False
 
         self.controls = [
             ft.Row([
@@ -132,21 +242,32 @@ class StudyNotesView(ft.Column):
         self.chat_input.color = current_theme["text_primary"]
         self.chat_input.hint_style.color = current_theme["text_secondary"]
         
+        # Update Config Dropdowns
+        for ctrl in [self.purpose_dropdown, self.level_dropdown, self.lang_dropdown, self.pages_input]:
+             ctrl.text_style.color = current_theme["text_primary"]
+             ctrl.label_style.color = current_theme["text_secondary"]
+             ctrl.border_color = ft.Colors.with_opacity(0.2, current_theme["text_primary"])
+             if isinstance(ctrl, ft.Dropdown):
+                 pass # Dropdown specific text color handled by theme generally, or we set usage
+             else:
+                 ctrl.bgcolor = ft.Colors.with_opacity(0.1, current_theme["text_primary"])
+        
         self.file_button.icon_color = current_theme["text_primary"]
         self.toggle_btn.icon_color = current_theme["text_primary"]
         self.header_text.color = current_theme["accent"]
         self.history_drawer.bgcolor = current_theme["bg_secondary"]
         
-        # Update Chat Area Background
-        # The container holding chat_list (2nd child of chat_area_container's Column)
-        if len(self.chat_area_container.content.controls) > 1:
-             self.chat_area_container.content.controls[1].bgcolor = ft.Colors.with_opacity(0.05, current_theme["text_primary"])
-             self.chat_area_container.content.controls[0].color = current_theme["text_primary"] # Header text
+        if self.page:
+             self.chat_area_container.content.controls[2].bgcolor = ft.Colors.with_opacity(0.05, current_theme["text_primary"])
+             # Update Tile Colors
+             self.config_tile.title.color = current_theme["text_primary"]
+             self.config_tile.subtitle.color = current_theme["text_secondary"]
+             self.config_tile.collapsed_text_color = current_theme["text_secondary"]
+             self.config_tile.text_color = current_theme["accent"]
+             self.config_tile.icon_color = current_theme["accent"]
         
         # Update send button color
-        row_controls = self.chat_area_container.content.controls[3].controls
-        if len(row_controls) > 2:
-             row_controls[2].icon_color = current_theme["accent"]
+        self.send_button.icon_color = current_theme["accent"]
 
         # Update Model Selector
         self.model_dropdown.update_theme()
@@ -166,6 +287,7 @@ class StudyNotesView(ft.Column):
         if self.page:
             self.update()
 
+    # ... (did_mount to save_current_session identical) ...
     def did_mount(self):
         """Called when control is added to page"""
         if self.page:
@@ -180,7 +302,6 @@ class StudyNotesView(ft.Column):
         self.file_helper.open_picker()
 
     def launch_url(self, url):
-        # Open links if any
         pass
 
     def add_chat_bubble(self, text, is_user=False, run_update=True):
@@ -238,12 +359,11 @@ class StudyNotesView(ft.Column):
         self.notes_display.value = self.current_notes if self.current_notes else "No notes content."
         
         self.chat_history = data.get('messages', [])
-        # Rebuild Chat
         self.chat_list.controls.clear()
         for msg in self.chat_history:
              is_user = msg['role'] == 'user'
              self.add_chat_bubble(msg['content'], is_user=is_user, run_update=False)
-             self.chat_history.pop() # Remove duplicate caused by add_chat_bubble
+             self.chat_history.pop() # Remove duplicate
         
         self.history_view.current_session_id = session_id
         self.history_view.refresh_list()
@@ -251,7 +371,6 @@ class StudyNotesView(ft.Column):
             self.update()
 
     def save_current_session(self):
-        # Infer title
         title = "New Study Session"
         for msg in self.chat_history:
             if msg['role'] == 'user':
@@ -265,6 +384,21 @@ class StudyNotesView(ft.Column):
             self.chat_history,
             extra_data={"notes_content": self.current_notes}
         )
+    # ...
+
+    def stop_generation_click(self, e):
+        """Stops the current AI generation"""
+        if self.processing_request:
+            self.brain.stop_generation()
+            self.processing_request = False
+            self.toggle_send_stop_buttons(is_generating=False)
+            self.add_chat_bubble("⏹️ Generation Stopped.", is_user=False)
+
+    def toggle_send_stop_buttons(self, is_generating):
+        self.send_button.visible = not is_generating
+        self.stop_button.visible = is_generating
+        if self.page:
+            self.chat_area_container.update()
 
     def handle_chat_submit(self, e):
         prompt = self.chat_input.value
@@ -274,7 +408,7 @@ class StudyNotesView(ft.Column):
         self.chat_input.value = ""
         if prompt:
             self.add_chat_bubble(prompt, is_user=True)
-        # update() called inside
+            self.chat_list.update() # Ensure user msg is seen
 
         # Image generation shortcut
         if prompt.strip().lower().startswith("/image") or prompt.strip().lower().startswith("image:"):
@@ -286,57 +420,224 @@ class StudyNotesView(ft.Column):
             self.add_chat_bubble("📎 Processing selected files...", is_user=False)
             prompt = self.file_helper.build_prompt_with_files(prompt)
         
+        self.processing_request = True
+        self.toggle_send_stop_buttons(is_generating=True)
+        
         if not self.current_notes:
             self.generate_new_notes(prompt)
         else:
             self.refine_notes(prompt)
+            
+        self.processing_request = False
+        self.toggle_send_stop_buttons(is_generating=False)
 
     def generate_new_notes(self, topic):
-        self.add_chat_bubble(f"🔍 Researching '{topic}'...", is_user=False)
+        # 1. Get Config Values
+        purpose = self.purpose_dropdown.value
+        level = self.level_dropdown.value
+        language = self.lang_dropdown.value
+        try:
+            pages = int(self.pages_input.value)
+        except: 
+            pages = 3
         
-        # 1. Deep Research
-        research = self.brain.deep_research(topic)
-        context = research['context'] if research else "Use general knowledge."
+        target_words = pages * 500
         
-        if research:
-            self.add_chat_bubble(f"found {len(research['results'])} sources. Writing notes...", is_user=False)
+        self.add_chat_bubble(f"🔍 Researching '{topic}' for {level} level {purpose} notes ({language})...", is_user=False)
+        
+        # 2. Deep Research
+        research_context = ""
+        try:
+            self.notes_display.value = "⏳ conducted deep research on the web..."
+            if self.page: self.update()
+            
+            if not self.processing_request: return
 
-        # 2. Generate Content
-        system_prompt = f"""You are an Expert Tutor.
-        Task: Create comprehensive study notes on the user's topic.
-        Research Base: {context}
+            research = self.brain.deep_research(topic)
+            if research:
+                research_context = research.get('context', '')
+                self.add_chat_bubble(f"✅ Found {len(research.get('results', []))} citations...", is_user=False)
+            else:
+                self.add_chat_bubble("⚠️ Web search limited, utilizing internal knowledge base.", is_user=False)
+        except Exception:
+             self.add_chat_bubble("⚠️ Research module unavailable.", is_user=False)
+
+        if not self.processing_request: return
+
+        # 3. Advanced Prompt
+        lang_instruction = ""
+        if language == "Hindi (Pure)":
+            lang_instruction = "Write completely in Hindi using Devanagari script (e.g., 'नमस्ते', not 'Namaste'). Do NOT use English script at all. Use formal/standard Hindi terms."
+        elif language == "Hinglish (Mix)":
+            lang_instruction = "Write in Hinglish: Use English script (Latin alphabet) for Hindi words. Easy to understand for Indian students. Example: 'Photoelectric effect mein electrons emit hote hain...' not 'प्रकाशवैद्युत प्रभाव'"
+        elif language == "Simple English":
+            lang_instruction = "Write in very simple, easy-to-understand English. Avoid complex jargon. Use analogies."
+        elif language in ["Marathi", "Bengali", "Tamil", "Telugu", "Kannada"]:
+            lang_instruction = f"Write completely in {language} using its native script. Do NOT use English script."
+        elif language in ["Spanish", "French", "German"]:
+            lang_instruction = f"Write completely in {language}. Use standard academic {language}."
+        else:
+            lang_instruction = "Write in standard academic English."
+
+        system_prompt = f"""You are a World-Class Professor and Expert Tutor.
         
-        Format: Markdown.
-        Structure:
-        - Title & Overview
-        - Key Concepts (Bullet points)
-        - Detailed Explanations
-        - Examples / Analogies
-        - Summary
-        """
+Topic: {topic}
+Purpose: {purpose}
+Difficulty Level: {level}
+Language: {lang_instruction}
+Target Length: Approx {pages} A4 Pages ({target_words} words).
+
+Context from Internet: {research_context[:15000]}
+
+Your Task: Create the ULTIMATE STUDY GUIDE.
+1. Coverage: Cover A-Z of the topic. Start from basics, go to advanced.
+2. Structure:
+   - **Title & Overview**: Brief summary.
+   - **Concepts (In-Depth)**: Explain every sub-topic in detail.
+   - **Key Terms/Formulas**: Highlight important data.
+   - **Examples/Analogies**: Use real-world examples to make it super clear ("Ek baar mein samajh aa jaye").
+   - **Summary/Cheatsheet**: For quick revision.
+
+Style Guide:
+- Use clear Headings, Bullet Points, and Bold text.
+- If 'Exam Prep': Focus on likely questions and marking points.
+- If 'Placement': Focus on interview questions and technical depth.
+- If 'Ph.D': Use academic rigor and citations.
+- EXPLAIN SO WELL THAT A STUDENT UNDERSTANDS IMMEDITELY.
+"""
         
-        response = self.brain.generate_content(topic, system_role=system_prompt)
-        self.current_notes = response
-        self.notes_display.value = response
-        self.save_current_session() # Save notes
-        self.update()
-        self.add_chat_bubble("✅ Notes generated! You can ask me to simplify, expand, or add quiz questions.", is_user=False)
+        self.current_notes = ""
+        # 4. UI Setup: Clear previous and add new container
+        self.notes_contrainer.content.controls.clear()
+        
+        current_theme = theme.get_theme()
+        
+        # Create active markdown control
+        active_markdown = ft.Markdown(
+            "",
+            selectable=True,
+            extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+            on_tap_link=lambda e: self.launch_url(e.data),
+            code_theme="atom-one-dark"
+        )
+        
+        # Wrap in a card-like container
+        note_card = ft.Container(
+            content=active_markdown,
+            bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]),
+            padding=20,
+            border_radius=10,
+            border=ft.border.all(1, ft.Colors.with_opacity(0.1, current_theme["text_primary"]))
+        )
+        
+        self.notes_contrainer.content.controls.append(note_card)
+        self.notes_contrainer.update()
+        
+        try:
+            response_generator = self.brain.generate_content(topic, system_role=system_prompt, stream=True)
+            
+            import types
+            if isinstance(response_generator, types.GeneratorType):
+                for chunk in response_generator:
+                    if not self.processing_request: break
+                    self.current_notes += chunk
+                    # Update ONLY the active markdown control with new chunk
+                    # Note: We rebuild the value for this specific control
+                    active_markdown.value = self.current_notes + " 🖊️"
+                    active_markdown.update()
+                
+                active_markdown.value = self.current_notes
+                active_markdown.update()
+            else:
+                self.current_notes = response_generator
+                active_markdown.value = self.current_notes
+                active_markdown.update()
+                
+        except Exception as e:
+            self.add_chat_bubble(f"❌ Error: {e}", is_user=False)
+            return
+
+        self.save_current_session()
+        self.add_chat_bubble("✅ Guide generated!", is_user=False)
 
     def refine_notes(self, instruction):
-        self.add_chat_bubble("✍️ Refining notes...", is_user=False)
+        self.add_chat_bubble("✍️ Adding to notes...", is_user=False)
         
-        system_prompt = f"""You are an Expert Tutor.
-        Current Notes:
-        {self.current_notes}
-        
+        # Determine language for context
+        language = self.lang_dropdown.value
+        lang_instruction = ""
+        if language == "Hindi (Pure)":
+             lang_instruction = "Write in Hindi (Devanagari). Do NOT use English script."
+        elif language == "Hinglish (Mix)":
+             lang_instruction = "Write in Hinglish (English script for Hindi)."
+        else:
+             lang_instruction = f"Write in {language}."
+
+        system_prompt = f"""You are an Expert Tutor. 
         User Instruction: {instruction}
-        
-        Task: Rewrite or Modify the notes based on the instruction. Return the FULL updated markdown.
+        Context: The user is asking a follow-up question or requesting more details on the previous topic.
+        Language: {lang_instruction}
+        Task: Provide a detailed answer/addition. Do NOT rewrite the old notes. Just generate the NEW content.
+        Style: Markdown with headers/bullets.
         """
         
-        response = self.brain.generate_content("Update the notes.", system_role=system_prompt)
-        self.current_notes = response
-        self.notes_display.value = response
-        self.save_current_session() # Save notes
-        self.update()
-        self.add_chat_bubble("✅ Notes updated!", is_user=False)
+        # Append separator
+        separator = "\n\n---\n\n### ➕ Additional Notes\n\n"
+        self.current_notes += separator
+        
+        # UI: Create NEW container for follow-up
+        current_theme = theme.get_theme()
+        
+        follow_up_markdown = ft.Markdown(
+            "",
+            selectable=True,
+            extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+            on_tap_link=lambda e: self.launch_url(e.data),
+            code_theme="atom-one-dark"
+        )
+        
+        follow_up_card = ft.Container(
+            content=follow_up_markdown,
+            bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]),
+            padding=20,
+            border_radius=10,
+            border=ft.border.all(1, ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
+            margin=ft.margin.only(top=10)
+        )
+        
+        self.notes_contrainer.content.controls.append(follow_up_card)
+        self.notes_contrainer.update()
+        
+        # Temp buffer for new content display
+        new_content_buffer = "" 
+        
+        try:
+            response_generator = self.brain.generate_content("Follow-up: " + instruction, system_role=system_prompt, stream=True)
+            
+            import types
+            if isinstance(response_generator, types.GeneratorType):
+                for chunk in response_generator:
+                     if not self.processing_request: break
+                     new_content_buffer += chunk
+                     # Update logic memory
+                     # Note: we don't add chunk to self.current_notes here yet to avoid double counting if logic changes
+                     # Actually we should.
+                     
+                     # Update UI: Only show NEW buffer
+                     follow_up_markdown.value = new_content_buffer + " 🖊️"
+                     follow_up_markdown.update()
+                
+                # Finalize
+                self.current_notes += new_content_buffer # Update history
+                follow_up_markdown.value = new_content_buffer
+                follow_up_markdown.update()
+            else:
+                 self.current_notes += response_generator
+                 follow_up_markdown.value = response_generator
+                 follow_up_markdown.update()
+                 
+        except Exception as e:
+            self.add_chat_bubble(f"❌ Error: {e}", is_user=False)
+
+        self.save_current_session()
+        self.add_chat_bubble("✅ Notes expanded!", is_user=False)

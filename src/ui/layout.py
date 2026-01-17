@@ -79,9 +79,16 @@ class MainLayout(ft.Row):
             self.content_area
         ]
 
+    def did_mount(self):
+        """Called when layout is added to page"""
+        # Force apply current theme to ensure page theme_mode is set
+        current_theme_name = theme.get_current_theme_name()
+        self.apply_theme(current_theme_name)
+
     def build_sidebar(self):
         current_theme = theme.get_theme()
         self.sidebar_column = ft.Column(
+            scroll=ft.ScrollMode.AUTO,
             controls=[
                 ft.Text("Medha AI", size=24, weight=ft.FontWeight.BOLD, color=current_theme["accent"]),
                 ft.Divider(color=ft.Colors.with_opacity(0.1, current_theme["text_primary"])),
@@ -357,17 +364,28 @@ class MainLayout(ft.Row):
             on_click=self.toggle_continuous_voice
         )
         
+        self.stop_button = ft.IconButton(
+            icon=ft.Icons.STOP_CIRCLE_OUTLINED,
+            icon_color=current_theme["error"],
+            tooltip="Stop Generation",
+            visible=False,
+            on_click=self.stop_generation_click
+        )
+        
+        self.send_button = ft.IconButton(
+            icon=ft.Icons.SEND_ROUNDED, 
+            icon_color=current_theme["accent"],
+            tooltip="Send Message",
+            on_click=self.send_message
+        )
+
         self.input_container = ft.Container(
             content=ft.Row([
                 self.input_box,
                 self.mic_button,
                 self.continuous_voice_button,
-                ft.IconButton(
-                    icon=ft.Icons.SEND_ROUNDED, 
-                    icon_color=current_theme["accent"],
-                    tooltip="Send Message",
-                    on_click=self.send_message
-                )
+                self.stop_button,
+                self.send_button
             ]),
             padding=10,
             bgcolor=ft.Colors.with_opacity(0.05, current_theme["text_primary"]),
@@ -565,16 +583,31 @@ class MainLayout(ft.Row):
         self.add_chat_bubble("✅ File loaded! You can now ask questions about this file.", is_user=False)
         self._page.update()
 
+    def stop_generation_click(self, e):
+        """Stops the current AI generation"""
+        if self.processing_request:
+            self.brain.stop_generation()
+            self.processing_request = False
+            self.toggle_send_stop_buttons(is_generating=False)
+            self.add_chat_bubble("⏹️ Generation Stopped.", is_user=False)
+            self._page.update()
+
+    def toggle_send_stop_buttons(self, is_generating):
+        """Toggles between Send and Stop buttons"""
+        self.send_button.visible = not is_generating
+        self.stop_button.visible = is_generating
+        self.input_container.update()
+
     def send_message(self, e, use_voice=False):
         user_text = self.input_box.value
         if not user_text:
             return
         
-        # Increment request ID to invalidate previous requests
+        # Increment request ID
         self.current_request_id += 1
         request_id = self.current_request_id
 
-        # Save to Session Manager (Title update handled)
+        # Save to Session Manager
         self.save_current_chat()
         
         # Check for wake word
@@ -584,52 +617,73 @@ class MainLayout(ft.Row):
         # Add user message
         self.add_chat_bubble(user_text, is_user=True)
         self.input_box.value = ""
-        self.save_current_chat() # Save context immediately
+        self.save_current_chat()
         self._page.update()
         
-        # If already processing, the new request will make old ones stale
         if self.processing_request:
             print(f"🔄 New request received, skipping old request")
         
         self.processing_request = True
+        self.toggle_send_stop_buttons(is_generating=True)
         
-        # Build context with file if available
+        # Build context
         context_text = user_text
         if self.current_file_context:
-            context_text = f"""[Context: User has uploaded a file]
-{self.current_file_context}
-
-[User Question]: {user_text}
-
-Please answer the user's question based on the file content above."""
+            context_text = f"Context file loaded. User Question: {user_text}\nFile Content: {self.current_file_context}"
         
-        # Get AI Response (this is the slow part)
-        response = self.brain.ask(context_text)
+        # Add Placeholder AI Bubble
+        ai_text_control = self.add_chat_bubble("...", is_user=False, return_control=True)
+        self.chat_history.update() # Fix: Render the new bubble before updating it
         
-        # Check if this request is still valid (not interrupted by newer request)
+        # Streaming Logic
+        full_response = ""
+        try:
+            # Call brain with streaming
+            # Note: We need to handle if brain.ask returns string (error) or generator
+            response_obj = self.brain.ask(context_text, stream=True)
+            
+            import types
+            if isinstance(response_obj, types.GeneratorType):
+                ai_text_control.value = "" # Clear placeholder
+                for chunk in response_obj:
+                    if not self.processing_request: 
+                        break # Stop if cancelled
+                    full_response += chunk
+                    # Update UI with typing effect
+                    ai_text_control.value = full_response + " ▌"
+                    ai_text_control.update()
+                
+                # Finalize
+                ai_text_control.value = full_response
+                ai_text_control.update()
+            else:
+                # Fallback for non-streaming or errors
+                full_response = response_obj
+                ai_text_control.value = full_response
+                ai_text_control.update()
+                
+        except Exception as ex:
+            full_response = f"⚠️ Error: {str(ex)}"
+            ai_text_control.value = full_response
+            ai_text_control.update()
+
+        # Check if stale (though we blocked it mostly)
         if request_id != self.current_request_id:
-            print(f"⏭️ Skipping stale response (request {request_id}, current {self.current_request_id})")
-            self.processing_request = False
-            return None
-        
-        # Only show response if it's still the latest request
-        self.add_chat_bubble(response, is_user=False)
-        self.save_current_chat() # Save context after response
-        self._page.update()
+             print("Skipping stale post-processing")
+             return
+
         self.processing_request = False
+        self.toggle_send_stop_buttons(is_generating=False)
+        self.save_current_chat()
         
-        # Voice output logic (only for latest request)
+        # Voice output (only if voice mode active or wake word)
         if use_voice or is_wake_word:
-            # For voice mode, speak the full response (or limit to reasonable length)
-            speech_text = response if len(response) < 500 else response[:500] + "..."
-            # Remove markdown formatting for cleaner speech
+            speech_text = full_response if len(full_response) < 500 else full_response[:500] + "..."
             speech_text = speech_text.replace("**", "").replace("*", "").replace("#", "")
-            self.voice.speak(speech_text, lang='hi')  # Changed to 'hi' for Hindi
+            self.voice.speak(speech_text, lang='hi')
         
-        return response
-        
-        return response  # Return response for continuous mode
-    
+        return full_response
+
     def clear_history(self, e):
         """Clear chat history to save API quota"""
         self.chat_history.controls.clear()
@@ -637,31 +691,27 @@ Please answer the user's question based on the file content above."""
         self.add_chat_bubble("💬 Chat history cleared! Fresh start.", is_user=False)
         self._page.update()
 
-    def add_chat_bubble(self, text, is_user):
+    def add_chat_bubble(self, text, is_user, return_control=False):
         current_theme = theme.get_theme()
-        bubble_color = current_theme["accent"] if is_user else current_theme["bg_secondary"]
-        # Make user bubble slightly darker than accent for better contrast if needed, or stick to accent
-        # Actually user bubble is typically distinction. Let's use accent for user, and a secondary bg for AI?
-        # Standard: User right (Accent), AI left (Secondary BG or Surface)
         
         if is_user:
             bubble_color = current_theme["accent"]
-            text_color = ft.Colors.WHITE # Assuming accent is usually dark/vibrant
         else:
             bubble_color = current_theme["bg_secondary"]
-            text_color = current_theme["text_primary"]
 
         align = ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START
         
-        # Create message content with text wrapping
+        # Markdown Control
+        md_control = ft.Markdown(
+            text, 
+            selectable=True, 
+            extension_set="gitHubWeb",
+            code_theme="atom-one-dark",
+        )
+
+        # Create message content 
         message_content = ft.Container(
-            content=ft.Markdown(
-                text, 
-                selectable=True, 
-                extension_set="gitHubWeb",
-                code_theme="atom-one-dark",
-                code_style=ft.TextStyle(font_family="Roboto Mono"),
-            ),
+            content=md_control,
             padding=15,
             bgcolor=bubble_color,
             border_radius=ft.BorderRadius.only(
@@ -669,48 +719,39 @@ Please answer the user's question based on the file content above."""
                 bottom_left=15 if is_user else 0,
                 bottom_right=0 if is_user else 15
             ),
-            width=None,  # Allow flexible width
+            width=None, 
         )
         
-        # For AI messages, add a speak button
+        # Structure it
         if not is_user:
-            # Create a speaker button that can be clicked again to stop
+            # AI Bubble with Speaker
             speaker_button = ft.IconButton(
                 icon=ft.Icons.VOLUME_UP,
                 icon_color=current_theme["accent"],
                 icon_size=20,
                 tooltip="🔊 Speak / Stop",
-                data={"speaking": False}  # Track state
+                data={"speaking": False}
             )
             
             def toggle_speak(e):
                 if speaker_button.data["speaking"]:
-                    # Stop speaking
                     self.voice.stop_speaking()
                     speaker_button.icon = ft.Icons.VOLUME_UP
-                    speaker_button.icon_color = current_theme["accent"]
                     speaker_button.data["speaking"] = False
                     speaker_button.update()
                 else:
-                    # Start speaking
-                    speech_text = text.replace("**", "").replace("*", "").replace("#", "")
+                    speech_txt = md_control.value.replace("**", "").replace("*", "")
                     speaker_button.icon = ft.Icons.STOP
-                    speaker_button.icon_color = current_theme["error"] if "error" in current_theme else ft.Colors.RED_400
                     speaker_button.data["speaking"] = True
                     speaker_button.update()
-                    
-                    # Speak in thread and reset button when done
                     import threading
-                    def speak_and_reset():
-                        self.voice.speak(speech_text, lang='hi')
+                    def run_speak():
+                        self.voice.speak(speech_txt, lang='hi')
                         speaker_button.icon = ft.Icons.VOLUME_UP
-                        speaker_button.icon_color = current_theme["accent"]
                         speaker_button.data["speaking"] = False
-                        try:
-                            speaker_button.update()
-                        except:
-                            pass
-                    threading.Thread(target=speak_and_reset, daemon=True).start()
+                        try: speaker_button.update() 
+                        except: pass
+                    threading.Thread(target=run_speak, daemon=True).start()
             
             speaker_button.on_click = toggle_speak
             
@@ -719,24 +760,20 @@ Please answer the user's question based on the file content above."""
                     ft.Column(
                         [
                             message_content,
-                            ft.Container(
-                                content=speaker_button,
-                                padding=ft.padding.only(left=10, top=5)
-                            )
+                            ft.Container(speaker_button, padding=ft.padding.only(left=10))
                         ],
                         spacing=0,
-                        horizontal_alignment=ft.CrossAxisAlignment.START
                     )
                 ],
                 alignment=align,
-                wrap=True,  # Enable text wrapping
+                wrap=True,
             )
         else:
-            # User messages don't need speak button
-            bubble = ft.Row(
-                [message_content],
-                alignment=align,
-                wrap=True,  # Enable text wrapping
-            )
+            # User Bubble
+            bubble = ft.Row([message_content], alignment=align, wrap=True)
         
         self.chat_history.controls.append(bubble)
+        
+        if return_control:
+            return md_control
+        return None

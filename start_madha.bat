@@ -154,17 +154,19 @@ if exist "src\main.py" (
     echo [ERROR] No main.py file found!
     echo Please ensure you are in the correct directory.
 )
-) else if exist "main_mobile.py" (
-    echo [INFO] Using main_mobile.py (mobile version)
-    py -3.12 main_mobile.py
-    IF %ERRORLEVEL% NEQ 0 (
-        python main_mobile.py
-    )
 ) else (
-    COLOR 0C
-    echo [ERROR] No main.py file found!
-    echo Please ensure you are in the correct directory.
-    echo Expected files: main.py, main_mobile.py, or src\main.py
+    if exist "main_mobile.py" (
+        echo [INFO] Using main_mobile.py (mobile version)
+        py -3.12 main_mobile.py
+        IF %ERRORLEVEL% NEQ 0 (
+            python main_mobile.py
+        )
+    ) else (
+        COLOR 0C
+        echo [ERROR] No main.py file found!
+        echo Please ensure you are in the correct directory.
+        echo Expected files: main.py, main_mobile.py, or src\main.py
+    )
 )
 
 IF %ERRORLEVEL% NEQ 0 (
